@@ -29,7 +29,7 @@ import axios from "axios";
 
 initBugTracker({
   project: "frontend-app",
-  collectorUrl: "https://your-collector-url",
+  collectorUrl: "https://bugtracker.jainprashuk.in",
   axios
 });
 ```
