@@ -9,8 +9,6 @@ A lightweight JavaScript SDK for automatically tracking frontend errors, API fai
 - ✅ **Stack Trace Parsing** - Extracts file, line, and column information from error stacks
 - ✅ **Smart Fingerprinting** - Groups similar errors automatically
 - ✅ **Lightweight** - Minimal overhead on your application
-- ✅ **Zero Configuration** - Works out of the box with sensible defaults
-
 ---
 
 ## Installation
@@ -36,6 +34,29 @@ initBugTracker({
 
 // That's it! Your app is now tracking errors.
 ```
+
+<!-- TO GET APIKEY -->
+
+## 🔑 How to Generate an API Key
+
+To start using , you first need to generate a project API key from the dashboard.
+
+### Step 1: Open the Dashboard
+Go to the dashboard and Login:
+
+👉 [bugtrace.jainprashuk.in](https://bugtrace.jainprashuk.in/)
+
+### Step 2: Create a Project
+1. Click the **"Create Project"** button.
+2. Enter your **Project Name**.
+3. Click **Create Project**.
+
+### Step 3: Copy Your API Key
+After creating the project:
+
+- An **API Key will be automatically generated**.
+- Copy the API key from the dashboard.
+
 
 ### For React Applications
 
@@ -101,18 +122,7 @@ if (!response.ok) {
 
 ---
 
-## Configuration Options
 
-```typescript
-interface BugTrackerConfig {
-  project: string;              // Your project identifier (required)
-  collectorUrl: string;         // URL to your BugTracker collector (required)
-  apiKey?: string;              // API key for authentication (optional)
-  axios?: AxiosInstance;        // Axios instance to intercept (optional)
-  environment?: string;         // 'development' | 'production' (default: 'production')
-  releaseVersion?: string;      // Your app version (default: '1.0.0')
-}
-```
 
 ### Example with All Options
 
@@ -121,51 +131,14 @@ import { initBugTracker } from "bug-tracker-sdk";
 import axios from "axios";
 
 initBugTracker({
-  project: "my-app",
-  collectorUrl: "http://127.0.0.1:8000",
   apiKey: "sk_live_xxxxx",
   axios,
-  environment: "production",
-  releaseVersion: "1.2.0"
 });
 ```
 
 ---
 
-## Error Payload Format
 
-When an error occurs, the SDK sends a payload like this:
-
-```json
-{
-  "project": "my-app",
-  "timestamp": "2026-03-07T10:27:17.508Z",
-  "fingerprint": "6766af4e3f68dead430616a63337c9f151b414b4643bce9be8b790e896b48770",
-  "error": {
-    "message": "TypeError: Cannot read property 'name' of null",
-    "type": "unhandled_exception",
-    "stack": "Error: Cannot read property 'name' of null\n    at Object.<anonymous> (app.js:42:15)\n    at processTicksAndRejections (internal/timers.js:1294:10)"
-  },
-  "request": {
-    "url": "/api/users",
-    "method": "GET",
-    "headers": {
-      "Content-Type": "application/json"
-    }
-  },
-  "response": {
-    "status": 500,
-    "statusText": "Internal Server Error"
-  },
-  "location": {
-    "file": "app.js",
-    "line": 42,
-    "column": 15
-  }
-}
-```
-
----
 
 ## Integration with BugTracker Dashboard
 
@@ -198,61 +171,3 @@ initBugTracker({
 
 // Rest of your app initialization...
 ```
-
-### 2. Set Appropriate Environment
-
-Use environment-specific configurations:
-
-```javascript
-initBugTracker({
-  project: 'my-app',
-  collectorUrl: process.env.REACT_APP_COLLECTOR_URL,
-  environment: process.env.NODE_ENV,
-  releaseVersion: process.env.REACT_APP_VERSION
-});
-```
-
-### 3. Handle Sensitive Data
-
-The SDK automatically excludes sensitive data from being sent:
-- Passwords
-- API keys in request bodies
-- Authentication tokens (in most cases)
-
----
-
-## Troubleshooting
-
-### Errors not appearing in dashboard?
-
-1. Check that `collectorUrl` is correct and accessible
-2. Verify your `project` name matches your BugTracker project
-3. Check browser console for any SDK initialization errors
-4. Ensure Axios instance is passed to the SDK configuration
-
-### High error volume?
-
-- Filter to specific error types in the dashboard
-- Use the timeline to focus on recent errors
-- Check if errors are duplicates (grouped by fingerprint)
-
----
-
-## Supported Browsers
-
-- Chrome/Edge 90+
-- Firefox 88+
-- Safari 14+
-- iOS Safari 14+
-
----
-
-## License
-
-MIT
-
----
-
-## Support
-
-For issues, questions, or feature requests, visit our [documentation](https://docs.bugtracker.jainprashuk.in) or create an issue on [GitHub](https://github.com/jainprashuk/error-tracker).

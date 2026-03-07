@@ -187,18 +187,7 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Demo Credentials */}
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 mt-6">
-            <p className="text-slate-400 text-xs mb-3 font-semibold uppercase tracking-wide">Demo Credentials:</p>
-            <div className="space-y-2">
-              <p className="text-slate-400 text-xs">
-                Email: <code className="text-emerald-400 font-mono font-medium">demo@example.com</code>
-              </p>
-              <p className="text-slate-400 text-xs">
-                Password: <code className="text-emerald-400 font-mono font-medium">password123</code>
-              </p>
-            </div>
-          </div>
+         
         </div>
 
         {/* Footer */}
