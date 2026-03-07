@@ -1,28 +1,28 @@
 """
 Database connection and collection initialization module.
-Establishes MongoDB connection and provides access to error collections.
+Establishes MongoDB connection and provides access to collections.
 """
 
 import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load .env variables
 load_dotenv()
 
-# Get MongoDB URL from environment variables
-mongourl = os.getenv("mongo_uri")
+# Get MongoDB URI
+mongo_uri = os.getenv("mongo_uri")
 
-# Validate that MongoDB URL is configured
-if not mongourl:
+if not mongo_uri:
     raise ValueError("mongo_uri environment variable is not set. Please add it to your .env file.")
 
-# Connect to MongoDB Atlas cluster
-client = MongoClient(mongourl)
+# Connect to MongoDB
+client = MongoClient(mongo_uri)
 
-# Select the specific database named "error_tracker_db" to work with
-db = client[ os.getenv("db_name")]
+# Select database
+db = client[os.getenv("db_name")]
 
-# Get reference to the "errors" collection where all error documents will be stored
-# Collections are like tables in SQL databases, storing documents (JSON-like objects)
+# Collections
+users_collection = db["users"]
+projects_collection = db["projects"]
 errors_collection = db["errors"]

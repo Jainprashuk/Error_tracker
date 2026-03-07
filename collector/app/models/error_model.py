@@ -36,16 +36,9 @@ class ErrorInfo(BaseModel):
 
 
 class ErrorPayload(BaseModel):
-    """
-    Main model for complete error reports from clients.
-    This is the structure expected by the /report endpoint.
-    """
-    project: str  # Required: Name of the project reporting the error
-    timestamp: str  # Required: ISO format timestamp of when the error occurred
 
-    # Optional: HTTP request details if the error occurred during an API call
+    timestamp: str
+    error_type: Optional[str] = None
     request: Optional[RequestData] = None
-    # Optional: HTTP response details if available
     response: Optional[ResponseData] = None
-    # Optional: Error details (message, stack trace)
     error: Optional[ErrorInfo] = None

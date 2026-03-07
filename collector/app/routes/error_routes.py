@@ -1,39 +1,70 @@
-"""
-Error reporting routes for the Error Tracker Collector.
-Handles incoming error reports from client-side SDKs and stores them in the database.
-"""
-
-from fastapi import APIRouter
+from fastapi import APIRouter, Request, HTTPException
 from app.models.error_model import ErrorPayload
 from app.services.ticket_service import create_ticket
+from app.services.db import db
+from app.services.db import errors_collection
+from bson import ObjectId
 
-# Create APIRouter instance for error-related endpoints
 router = APIRouter()
 
-# POST endpoint to receive error reports from clients
+projects_collection = db["projects"]
+
+
 @router.post("/report")
-def report_error(payload: ErrorPayload):
-    """
-    Endpoint to receive and store error reports from client applications.
-    
-    Args:
-        payload (ErrorPayload): The error data sent by the client, includes:
-            - project: Name of the project reporting the error
-            - timestamp: When the error occurred
-            - request: Optional HTTP request details (URL, method, payload)
-            - response: Optional HTTP response details (status, data)
-            - error: Error information (message, stack trace)
-    
-    Returns:
-        dict: Status confirmation that the error was received
-    """
-    
-    # Log that an error report was received
-    print("Error received")
+async def report_error(payload: ErrorPayload, request: Request):
 
-    # Process and store the error in the database
-    # This creates a new error entry or updates an existing one if it's a duplicate
-    create_ticket(payload)
+    api_key = request.headers.get("x-api-key")
 
-    # Return confirmation that the error was accepted
+    if not api_key:
+        raise HTTPException(status_code=401, detail="API key missing")
+
+    project = projects_collection.find_one({"api_key": api_key})
+
+    if not project:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    print("Error received for project:", project["name"])
+
+    create_ticket(payload, project["_id"])
+
     return {"status": "received"}
+
+
+# GET all errors of a project
+@router.get("/projects/{project_id}/errors")
+def get_project_errors(project_id: str):
+
+    errors = list(
+        errors_collection.find(
+            {"project_id": ObjectId(project_id)},
+            {
+                "_id": 0,
+                "fingerprint": 1,
+                "error_type": 1,
+                "occurrences": 1,
+                "first_seen": 1,
+                "last_seen": 1,
+                "location": 1   # 🔥 added
+            }
+        )
+    )
+
+    return errors
+
+
+# GET error details
+@router.get("/errors/{fingerprint}")
+def get_error_detail(fingerprint: str):
+
+    error = errors_collection.find_one({"fingerprint": fingerprint})
+
+    if not error:
+        raise HTTPException(status_code=404, detail="Error not found")
+
+    # Convert ObjectId → string
+    error["_id"] = str(error["_id"])
+
+    if "project_id" in error:
+        error["project_id"] = str(error["project_id"])
+
+    return error

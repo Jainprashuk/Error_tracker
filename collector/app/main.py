@@ -6,6 +6,9 @@ This file initializes the FastAPI app, configures CORS middleware, and includes 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.error_routes import router as error_router
+from app.routes.project_routes import router as project_router
+from app.routes.auth_routes import router as auth_router
+
 
 # Initialize FastAPI application instance
 app = FastAPI()
@@ -23,7 +26,8 @@ app.add_middleware(
 # Include the error routes from the routes module
 # This adds all endpoints defined in error_routes.py to the application
 app.include_router(error_router)
-
+app.include_router(project_router)
+app.include_router(auth_router)
 
 @app.get("/")
 def root():
