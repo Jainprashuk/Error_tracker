@@ -119,6 +119,12 @@ export const LandingPage: React.FC = () => {
               >
                 Pricing
               </button>
+              <button
+                onClick={() => navigate('/docs')}
+                className="block w-full text-left px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800/50 rounded transition-colors"
+              >
+                Docs
+              </button>
             </div>
           )}
         </div>
