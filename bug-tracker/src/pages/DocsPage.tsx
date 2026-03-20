@@ -1,20 +1,19 @@
 import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
-import { Zap } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {  useSearchParams } from "react-router-dom";
 import { DOCS_SECTIONS } from "../types/docsSections";
 
 
-export function DocsPage({ isLoggedIn }: { isLoggedIn: boolean }) {
+export function DocsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState<string>(searchParams.get('section') || DOCS_SECTIONS[0].id);
   const [copiedCode, setCopiedCode] = useState<string>("");
-  const navigate = useNavigate();
 
   // Sync activeSection with URL query param
   useEffect(() => {
     const section = searchParams.get('section') || DOCS_SECTIONS[0].id;
     setActiveSection(section);
+    setSearchParams({ section });
   }, [searchParams]);
 
   const copyToClipboard = (code: string, id: string) => {

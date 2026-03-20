@@ -67,7 +67,7 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/project/:id" element={<ProjectPage />} />
             <Route path="/error/:fingerprint" element={<ErrorDetailPage />} />
-            <Route path="/docs" element={<DocsPage isLoggedIn={true} />} />
+            <Route path="/docs" element={<DocsPage  />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

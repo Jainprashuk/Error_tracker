@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus, AlertTriangle, LayoutGrid, Clock, TrendingUp,
+  Plus, AlertTriangle, LayoutGrid, Clock,
   ArrowRight, Activity, Zap, RefreshCw, Eye, EyeOff,
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
