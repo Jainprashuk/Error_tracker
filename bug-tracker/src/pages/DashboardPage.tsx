@@ -272,10 +272,10 @@ export const DashboardPage: React.FC = () => {
 
       {/* ── Ambient glow blobs ── */}
       <div className="fixed top-0 right-0 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="fixed bottom-0 left-64 w-96 h-96 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed bottom-0 left-0 md:left-64 w-96 h-96 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
 
       <main className="flex-1 h-screen overflow-y-auto">
-        <div className="p-8 space-y-8">
+        <div className="p-3 md:p-8 space-y-6 md:space-y-8">
 
           {/* ── Header ── */}
           <div className="flex items-start justify-between animate-fade-in-up">
@@ -314,7 +314,7 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           {/* ── Stat cards ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
             <div className="animate-fade-in-up delay-75">
               <StatCard
                 label="Total Errors"
@@ -425,7 +425,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                 {[...Array(3)].map((_, i) => (
                   <Skeleton key={i} className="h-56" />
                 ))}
