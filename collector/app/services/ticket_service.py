@@ -2,30 +2,60 @@ from app.utils.fingerprint import generate_fingerprint
 from app.services.db import errors_collection
 from datetime import datetime
 from app.utils.stack_parser import parse_stack_trace
+from app.utils.s3upload import upload_screenshot
 
 
-def create_ticket(error_payload, project_id):
+def ParseError(payload, project_id):
+
+    print("📦 PAYLOAD IN ParseError 👉", payload)
 
     endpoint = None
     message = None
     stack = None
+    screenshot_url = None
+    event_type = payload.get("event_type")
 
-    if error_payload.request:
-        endpoint = error_payload.request.url
+    # 📸 Screenshot upload
+    try:
+        if payload.get("screenshot"):
+            screenshot_url = upload_screenshot(payload["screenshot"])
+    except Exception:
+        screenshot_url = None
 
-    if error_payload.error:
-        message = error_payload.error.message
-        stack = error_payload.error.stack
+    # 🌐 Request
+    request = payload.get("request") or {}
+    endpoint = request.get("url")
 
-    fingerprint = generate_fingerprint(endpoint or "unknown", message or "unknown")
+    # ❌ Error
+    error = payload.get("error") or {}
+    message = error.get("message")
+    stack = error.get("stack")
 
-    # 🔥 parse stack trace
-    location = parse_stack_trace(stack)
+    # 📍 Location
+    location = parse_stack_trace(stack) if stack else None
+
+    # 🔑 Fingerprint (UPDATED)
+    fingerprint = generate_fingerprint(
+        endpoint=endpoint,
+        message=message,
+        stack=stack,
+        event_type=event_type
+    )
 
     existing = errors_collection.find_one({
         "project_id": project_id,
         "fingerprint": fingerprint
     })
+
+    update_data = {
+        "last_seen": datetime.utcnow(),
+        "event_type": event_type,
+        "location": location,
+        "payload": payload   # 🔥 ADD THIS
+    }
+
+    if screenshot_url:
+        update_data["screenshot_url"] = screenshot_url
 
     if existing:
 
@@ -36,11 +66,7 @@ def create_ticket(error_payload, project_id):
             },
             {
                 "$inc": {"occurrences": 1},
-                "$set": {
-                    "last_seen": datetime.utcnow(),
-                    "error_type": error_payload.error_type,
-                    "location": location
-                }
+                "$set": update_data
             }
         )
 
@@ -49,12 +75,10 @@ def create_ticket(error_payload, project_id):
         errors_collection.insert_one({
             "project_id": project_id,
             "fingerprint": fingerprint,
-            "error_type": error_payload.error_type,
-            "payload": error_payload.model_dump(),
-
-            # 🔥 new field
+            "event_type": event_type,
+            "payload": payload,
             "location": location,
-
+            "screenshot_url": screenshot_url,
             "occurrences": 1,
             "first_seen": datetime.utcnow(),
             "last_seen": datetime.utcnow()

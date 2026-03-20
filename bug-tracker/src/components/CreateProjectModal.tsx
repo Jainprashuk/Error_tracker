@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
-import { Button, Card, Input } from './ui';
+import { X, Copy, Check, Terminal } from 'lucide-react';
+import { Button, Input } from './ui';
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -19,161 +19,191 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!projectName.trim()) {
-      setError('Project name is required');
-      return;
-    }
-
+    if (!projectName.trim()) { setError('Project name is required'); return; }
     try {
-      const result = await onSubmit(projectName);
+      const result = await onSubmit(projectName.trim());
       if (result && result.apiKey) {
         setApiKey(result.apiKey);
         setProjectId(result.projectId);
       } else {
-        setError('Failed to create project');
+        setError('Failed to create project. Please try again.');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create project');
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyText = (text: string, which: 'key' | 'id') => {
     navigator.clipboard.writeText(text);
+    if (which === 'key') { setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); }
+    else { setCopiedId(true); setTimeout(() => setCopiedId(false), 2000); }
+  };
+
+  const handleClose = () => {
+    setProjectName('');
+    setApiKey(null);
+    setProjectId(null);
+    setError('');
+    onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <Card className="rounded-2xl shadow-2xl shadow-blue-500/20">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto animate-fade-in-up">
+        <div className="bg-slate-900/95 border border-slate-700/60 rounded-2xl shadow-2xl shadow-black/50 backdrop-blur-xl overflow-hidden">
+
+          {/* Top accent */}
+          <div className="h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+
           {/* Header */}
-          <div className="flex justify-between items-center mb-8 pb-6 border-b border-slate-700/50">
+          <div className="px-6 py-5 border-b border-slate-700/40 flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                Create New Project
-              </h2>
-              <p className="text-slate-400 text-sm mt-1">Set up a new project to start tracking errors</p>
+              <h2 className="text-lg font-bold text-white">Create New Project</h2>
+              <p className="text-slate-400 text-xs mt-0.5">Set up error monitoring in seconds</p>
             </div>
             <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-800/50 rounded-lg text-slate-400 hover:text-white transition-all duration-200"
+              id="modal-close-btn"
+              onClick={handleClose}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-all duration-200 active:scale-95"
             >
-              <X size={24} />
+              <X size={18} />
             </button>
           </div>
 
-          {apiKey ? (
-            // Success view with API key
-            <div className="space-y-6">
-              <div className="bg-emerald-900/20 border border-emerald-800/50 rounded-xl p-4">
-                <p className="text-emerald-400 font-medium flex items-center gap-2">
-                  <span className="text-xl">✓</span> Project created successfully!
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold mb-3 text-lg">Your Project ID</h3>
-                <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 flex items-center justify-between gap-4 group hover:bg-slate-800/60 transition-all">
-                  <code className="text-blue-400 font-mono text-sm break-all flex-1">{projectId}</code>
-                  <button
-                    onClick={() => copyToClipboard(projectId || '')}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 active:scale-95"
-                  >
-                    Copy
-                  </button>
-                </div>
-                <p className="text-slate-400 text-sm mt-3">
-                  Use this ID to link errors and fetch project data.
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold mb-3 text-lg">Your API Key</h3>
-                <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 flex items-center justify-between gap-4 group hover:bg-slate-800/60 transition-all">
-                  <code className="text-emerald-400 font-mono text-sm break-all flex-1">{apiKey}</code>
-                  <button
-                    onClick={() => copyToClipboard(apiKey)}
-                    className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 active:scale-95"
-                  >
-                    Copy
-                  </button>
-                </div>
-                <p className="text-slate-400 text-sm mt-3">
-                  Keep this API key safe. You'll need it to configure your SDK.
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold mb-3 text-lg">SDK Integration</h3>
-                <p className="text-slate-300 mb-3 text-sm">Install the SDK:</p>
-                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 mb-4">
-                  <code className="text-emerald-400 font-mono text-sm">npm install bug-tracker-sdk</code>
+          <div className="p-6">
+            {apiKey ? (
+              /* ── Success State ── */
+              <div className="space-y-5 animate-fade-in-up">
+                {/* Success banner */}
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Check size={16} className="text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-emerald-300 font-semibold text-sm">Project created!</p>
+                    <p className="text-emerald-400/60 text-xs mt-0.5">Save your credentials below.</p>
+                  </div>
                 </div>
 
-                <p className="text-slate-300 mb-3 text-sm">Initialize in your app:</p>
-                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
-                  <pre className="text-slate-300 font-mono text-sm overflow-x-auto leading-relaxed">
-{`import { initBugTracker } from 'bug-tracker-sdk';
+                {/* Project ID */}
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest mb-2">Project ID</p>
+                  <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3">
+                    <code className="text-blue-400 font-mono text-xs flex-1 break-all">{projectId}</code>
+                    <button
+                      onClick={() => copyText(projectId || '', 'id')}
+                      className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-slate-700/60 hover:bg-slate-600/70 text-slate-400 hover:text-white transition-all duration-150"
+                    >
+                      {copiedId ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* API Key */}
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest mb-2">API Key</p>
+                  <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3">
+                    <code className="text-emerald-400 font-mono text-xs flex-1 break-all">{apiKey}</code>
+                    <button
+                      onClick={() => copyText(apiKey, 'key')}
+                      className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-slate-700/60 hover:bg-slate-600/70 text-slate-400 hover:text-white transition-all duration-150"
+                    >
+                      {copiedKey ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-600 mt-2">⚠ Store this key securely — it won't be shown again.</p>
+                </div>
+
+                {/* Code snippet */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Terminal size={12} className="text-slate-500" />
+                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest">SDK Setup</p>
+                  </div>
+                  <div className="bg-slate-950/70 border border-slate-700/40 rounded-xl overflow-hidden">
+                    <div className="px-4 py-2 border-b border-slate-700/40 flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
+                      <span className="text-slate-600 text-[10px] font-mono ml-2">index.ts</span>
+                    </div>
+                    <pre className="p-4 text-slate-300 font-mono text-xs overflow-x-auto leading-relaxed">
+                      {`import { initBugTracker } from 'bug-tracker-sdk';
 
 initBugTracker({
   project: "${projectName}",
   collectorUrl: "https://bugtracker.jainprashuk.in",
   apiKey: "${apiKey}"
-})`}
-                  </pre>
+});`}
+                    </pre>
+                  </div>
+                  <p className="text-[10px] text-slate-600 mt-2 font-mono">npm install bug-tracker-sdk</p>
                 </div>
-              </div>
 
-              <Button variant="primary" onClick={onClose} className="w-full">
-                Done
-              </Button>
-            </div>
-          ) : (
-            // Form view
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-white font-medium mb-3">Project Name</label>
-                <Input
-                  type="text"
-                  placeholder="e.g., My Web App"
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  disabled={isLoading}
-                  className="text-base"
-                />
-              </div>
-
-              {error && (
-                <div className="bg-red-900/20 border border-red-800/50 rounded-xl p-4">
-                  <p className="text-red-300 text-sm">{error}</p>
-                </div>
-              )}
-
-              <div className="flex gap-3 justify-end pt-6 border-t border-slate-700/50">
-                <Button
-                  variant="secondary"
-                  onClick={onClose}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  type="submit"
-                  isLoading={isLoading}
-                >
-                  Create Project
+                <Button id="modal-done-btn" variant="primary" onClick={handleClose} className="w-full">
+                  Done — Go to Dashboard
                 </Button>
               </div>
-            </form>
-          )}
-        </Card>
+            ) : (
+              /* ── Form ── */
+              <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in-up">
+                <div>
+                  <label className="block text-sm text-slate-300 font-medium mb-2">
+                    Project Name
+                  </label>
+                  <Input
+                    id="project-name-input"
+                    type="text"
+                    placeholder="e.g. My Web App, API Server…"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    disabled={isLoading}
+                    autoFocus
+                  />
+                  <p className="text-xs text-slate-600 mt-1.5">
+                    Choose a name that identifies this application.
+                  </p>
+                </div>
+
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3.5">
+                    <p className="text-red-300 text-sm">{error}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleClose}
+                    disabled={isLoading}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    id="create-project-submit-btn"
+                    type="submit"
+                    variant="primary"
+                    isLoading={isLoading}
+                    disabled={!projectName.trim()}
+                    className="flex-1"
+                  >
+                    Create Project
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Request, HTTPException
 from app.models.error_model import ErrorPayload
-from app.services.ticket_service import create_ticket
+from app.services.ticket_service import ParseError
 from app.services.db import db
 from app.services.db import errors_collection
 from bson import ObjectId
+import json
 
 router = APIRouter()
 
@@ -12,6 +13,12 @@ projects_collection = db["projects"]
 
 @router.post("/report")
 async def report_error(payload: ErrorPayload, request: Request):
+
+    raw_body = await request.json()
+    print("🔥 RAW BODY:", raw_body)
+
+    payload_dict = payload.model_dump()
+    print("✅ PARSED BODY:", payload_dict)
 
     api_key = request.headers.get("x-api-key")
 
@@ -23,12 +30,10 @@ async def report_error(payload: ErrorPayload, request: Request):
     if not project:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
-    print("Error received for project:", project["name"])
-
-    create_ticket(payload, project["_id"])
+    # 🔥 Pass dict instead of model (flexible parsing)
+    ParseError(payload_dict, project["_id"])
 
     return {"status": "received"}
-
 
 # GET all errors of a project
 @router.get("/projects/{project_id}/errors")
@@ -40,7 +45,7 @@ def get_project_errors(project_id: str):
             {
                 "_id": 0,
                 "fingerprint": 1,
-                "error_type": 1,
+                "event_type": 1,
                 "occurrences": 1,
                 "first_seen": 1,
                 "last_seen": 1,

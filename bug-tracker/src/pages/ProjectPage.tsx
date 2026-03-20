@@ -1,12 +1,107 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Copy, Check } from 'lucide-react';
+import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton } from '../components/ui';
 import type { Error as ErrorType, Project } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://bugtracker.jainprashuk.in';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+// ─── Helpers ────────────────────────────────────────────────────
+const getErrorMessage = (error: any): string => {
+  if (error.message) return error.message;
+  if (error.error?.message) return error.error.message;
+  const fp = error.fingerprint || 'Unknown Error';
+  return fp.substring(0, 60) + (fp.length > 60 ? '…' : '');
+};
+
+const getEventTypeMeta = (eventType: string | undefined): {
+  label: string; variant: 'danger' | 'warning' | 'info' | 'success' | 'purple';
+} => {
+  switch (eventType) {
+    case 'unhandled_exception': return { label: 'Exception', variant: 'danger' };
+    case 'api_error': return { label: 'API Error', variant: 'warning' };
+    case 'validation_error': return { label: 'Validation', variant: 'purple' };
+    case 'performance': return { label: 'Performance', variant: 'info' };
+    default:
+      if (!eventType) return { label: 'Unknown', variant: 'info' };
+      return {
+        label: eventType.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+        variant: 'info',
+      };
+  }
+};
+
+const formatDate = (dateString: string | undefined) => {
+  if (!dateString) return 'N/A';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return 'N/A'; }
+};
+
+// ─── Issue row component ────────────────────────────────────────
+const IssueRow: React.FC<{ error: any; index: number; onClick: () => void }> = ({
+  error, index, onClick,
+}) => {
+  const eventType = (error as any).event_type || error.errorType;
+  const { label, variant } = getEventTypeMeta(eventType);
+  const file = error.location?.file ?? null;
+  const line = error.location?.line ?? null;
+
+  return (
+    <tr
+      id={`issue-row-${error.fingerprint}`}
+      onClick={onClick}
+      className="issue-row border-b border-slate-700/30 hover:bg-slate-700/20 cursor-pointer transition-all duration-150 group"
+      style={{ animationDelay: `${index * 30}ms` }}
+    >
+      {/* Type */}
+      <td className="px-6 py-4 ">
+        <Badge variant={variant}>{label}</Badge>
+      </td>
+
+      {/* Message + file */}
+      <td className="px-6 py-4">
+        <div className="max-w-lg">
+          <p className="text-white text-sm font-medium truncate group-hover:text-blue-300 transition-colors duration-150">
+            {getErrorMessage(error)}
+          </p>
+          {file && (
+            <p className="text-slate-500 text-xs font-mono mt-0.5 truncate">
+              {file}{line !== null ? `:${line}` : ''}
+            </p>
+          )}
+          <p className="text-slate-600 text-[10px] font-mono mt-0.5 truncate">{error.fingerprint}</p>
+        </div>
+      </td>
+
+      {/* Occurrences */}
+      <td className="px-6 py-4 text-center">
+        <Badge
+          variant={
+            error.occurrences > 50 ? 'danger' :
+              error.occurrences > 10 ? 'warning' :
+                error.occurrences > 5 ? 'info' : 'default'
+          }
+        >
+          {error.occurrences}×
+        </Badge>
+      </td>
+
+      {/* Last seen */}
+      <td className="px-6 py-4 text-right">
+        <span className="text-slate-400 text-xs">{formatDate((error as any).last_seen || error.lastSeen)}</span>
+      </td>
+    </tr>
+  );
+};
+
+// ─── Main page ───────────────────────────────────────────────────
 export const ProjectPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -14,77 +109,49 @@ export const ProjectPage: React.FC = () => {
   const [errors, setErrors] = useState<ErrorType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [filterType, setFilterType] = useState<string>('all');
 
-  useEffect(() => {
-    loadProjectData();
-  }, [id]);
+  useEffect(() => { loadProjectData(); }, [id]);
 
   const loadProjectData = async () => {
     setIsLoading(true);
     try {
       const session = localStorage.getItem('session');
       const token = session ? JSON.parse(session).token : null;
-
-      if (!token || !id) {
-        return;
-      }
+      if (!token || !id) return;
 
       const { user } = JSON.parse(session || '{}');
-
-      // Fetch all projects for the user to find the one with matching ID
-      const projectsResponse = await fetch(`${API_BASE_URL}/projects/${user.id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+      const projectsRes = await fetch(`${API_BASE_URL}/projects/${user.id}`, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
+      if (!projectsRes.ok) throw new Error('Failed to load projects');
 
-      if (!projectsResponse.ok) {
-        throw new Error(`Failed to load projects: ${projectsResponse.statusText}`);
-      }
+      const allProjects = await projectsRes.json();
+      const projectData = (Array.isArray(allProjects) ? allProjects : []).find((p: any) => p._id === id);
+      if (!projectData) throw new Error('Project not found');
 
-      const projectsData = await projectsResponse.json();
-      const projects = Array.isArray(projectsData) ? projectsData : [];
-      const projectData = projects.find((p: any) => p._id === id);
-
-      if (!projectData) {
-        throw new Error('Project not found');
-      }
-
-      // Fetch errors for this project
-      const errorsResponse = await fetch(`${API_BASE_URL}/projects/${id}/errors`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+      const errorsRes = await fetch(`${API_BASE_URL}/projects/${id}/errors`, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
+      if (!errorsRes.ok) throw new Error('Failed to load errors');
 
-      if (!errorsResponse.ok) {
-        throw new Error(`Failed to load errors: ${errorsResponse.statusText}`);
-      }
-
-      const errorsData = await errorsResponse.json();
+      const errorsData = await errorsRes.json();
       const projectErrors = Array.isArray(errorsData) ? errorsData : [];
 
-      // Map the real project data
-      const realProject: Project = {
+      setProject({
         id: projectData._id,
         name: projectData.name,
         apiKey: projectData.api_key,
         createdAt: projectData.created_at,
         userId: projectData.user_id,
         errorCount: projectErrors.length,
-        lastSeen: projectErrors.length > 0 
-          ? (projectErrors[0].last_seen || projectErrors[0].lastSeen) 
+        lastSeen: projectErrors.length > 0
+          ? (projectErrors[0].last_seen || projectErrors[0].lastSeen)
           : null,
-      };
-
-      setProject(realProject);
+      });
       setErrors(projectErrors);
-    } catch (error) {
-      console.error('Failed to load project data:', error);
+    } catch (err) {
+      console.error('Failed to load project data:', err);
     } finally {
       setIsLoading(false);
     }
@@ -98,61 +165,28 @@ export const ProjectPage: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'N/A';
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return 'N/A';
-    }
-  };
+  // Derived stats from errors
+  const errorTypes = errors.reduce((acc: Record<string, number>, e: any) => {
+    const t = e.event_type || e.errorType || 'unknown';
+    acc[t] = (acc[t] || 0) + 1;
+    return acc;
+  }, {});
 
-  const getErrorMessage = (error: any): string => {
-    // Try to get error message from various possible locations
-    if (error.message) return error.message;
-    if (error.error?.message) return error.error.message;
-    
-    // Fallback: use fingerprint truncated
-    const fp = error.fingerprint || 'Unknown Error';
-    return fp.substring(0, 50) + (fp.length > 50 ? '...' : '');
-  };
+  const filteredErrors = filterType === 'all'
+    ? errors
+    : errors.filter((e: any) => (e.event_type || e.errorType) === filterType);
 
-  const getErrorTypeBadgeVariant = (errorType: string | undefined): 'danger' | 'warning' | 'info' | 'success' => {
-    switch (errorType) {
-      case 'unhandled_exception':
-        return 'danger';
-      case 'api_error':
-        return 'warning';
-      case 'validation_error':
-        return 'warning';
-      default:
-        return 'info';
-    }
-  };
-
-  const getErrorTypeLabel = (errorType: string | undefined): string => {
-    if (!errorType) return 'Unknown';
-    return errorType
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
+  const uniqueTypes = ['all', ...Object.keys(errorTypes)];
 
   if (isLoading) {
     return (
-      <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
-          <Skeleton className="h-12 w-1/3 mb-8" />
-          <Skeleton className="h-40 mb-6" />
+        <div className="flex-1 ml-64 p-8 space-y-5">
+          <Skeleton className="h-12 w-1/3" />
+          <div className="grid grid-cols-3 gap-5">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+          </div>
           <Skeleton className="h-96" />
         </div>
       </div>
@@ -161,12 +195,12 @@ export const ProjectPage: React.FC = () => {
 
   if (!project) {
     return (
-      <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
         <Sidebar />
         <div className="flex-1 ml-64 p-8">
-          <Card className="text-center py-12">
-            <p className="text-slate-400 mb-4">Project not found</p>
-            <Button onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
+          <Card className="text-center py-16">
+            <p className="text-slate-400 mb-6">Project not found</p>
+            <Button onClick={() => navigate('/dashboard')}>← Back to Dashboard</Button>
           </Card>
         </div>
       </div>
@@ -174,104 +208,165 @@ export const ProjectPage: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 ml-64 overflow-auto w-full">
-        <div className="p-8 w-full">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-12">
+      {/* Ambient glow */}
+      <div className="fixed top-20 right-10 w-80 h-80 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
+
+      <main className="flex-1 ml-64 overflow-auto">
+        <div className="p-8 space-y-7">
+
+          {/* ── Header ── */}
+          <div className="flex items-center gap-4 animate-fade-in-up">
             <button
               onClick={() => navigate('/dashboard')}
-              className="p-2 hover:bg-slate-800/50 rounded-lg transition-all duration-200 text-slate-400 hover:text-white"
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800/60 border border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600/70 transition-all duration-200 active:scale-95 flex-shrink-0"
             >
-              <ChevronLeft size={24} />
+              <ChevronLeft size={18} />
             </button>
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                {project.name}
-              </h1>
-              <p className="text-slate-400 mt-1">Error monitoring and debugging</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-xs text-slate-500 font-medium">Projects /</span>
+                <span className="text-xs text-slate-400 font-medium">{project.name}</span>
+              </div>
+              <h1 className="text-2xl font-bold gradient-text truncate">{project.name}</h1>
+            </div>
+            <Badge variant={errors.length === 0 ? 'success' : 'danger'} dot>
+              {errors.length} {errors.length === 1 ? 'issue' : 'issues'}
+            </Badge>
+          </div>
+
+          {/* ── Stats row ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-fade-in-up delay-75">
+            {/* Total errors */}
+            <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 hover:border-red-500/30 hover:shadow-glow-red transition-all duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Total Issues</p>
+                <div className="w-8 h-8 bg-red-500/15 rounded-lg flex items-center justify-center">
+                  <AlertTriangle size={14} className="text-red-400" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-red-400">{errors.length}</p>
+            </div>
+
+            {/* Last seen */}
+            <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 hover:border-amber-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Last Seen</p>
+                <div className="w-8 h-8 bg-amber-500/15 rounded-lg flex items-center justify-center">
+                  <Clock size={14} className="text-amber-400" />
+                </div>
+              </div>
+              <p className="text-sm font-semibold text-white">
+                {project.lastSeen ? formatDate(project.lastSeen) : 'No activity'}
+              </p>
+            </div>
+
+            {/* Error types */}
+            <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 hover:border-blue-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Issue Types</p>
+                <div className="w-8 h-8 bg-blue-500/15 rounded-lg flex items-center justify-center">
+                  <Hash size={14} className="text-blue-400" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-blue-400">{Object.keys(errorTypes).length}</p>
             </div>
           </div>
 
-          {/* API Key Section */}
-          <Card className="mb-8 group">
-            <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-700/50">
-              <h2 className="text-lg font-bold text-white">API Key</h2>
-              <Badge variant="info">Copy to use</Badge>
-            </div>
-            <div className="flex items-center gap-3">
-              <code className="flex-1 bg-slate-800/40 border border-slate-700/50 px-4 py-3 rounded-lg text-emerald-400 font-mono text-sm break-all">
-                {project.apiKey}
-              </code>
-              <Button
-                variant="secondary"
-                onClick={copyApiKey}
-                className="flex items-center gap-2 whitespace-nowrap"
-              >
-                {copiedKey ? <Check size={18} /> : <Copy size={18} />}
-                {copiedKey ? 'Copied' : 'Copy'}
-              </Button>
-            </div>
-          </Card>
+          {/* ── API Key ── */}
+          <div className="animate-fade-in-up delay-150">
+            <Card className="!p-0 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-700/40 flex items-center gap-2">
+                <div className="w-7 h-7 bg-emerald-500/15 rounded-lg flex items-center justify-center">
+                  <Key size={13} className="text-emerald-400" />
+                </div>
+                <h2 className="text-sm font-semibold text-white">API Key</h2>
+                <Badge variant="success" className="ml-auto">Active</Badge>
+              </div>
+              <div className="px-5 py-4 flex items-center gap-3">
+                <code className="flex-1 bg-slate-900/60 border border-slate-700/40 rounded-xl px-4 py-2.5 text-emerald-400 font-mono text-xs break-all">
+                  {project.apiKey}
+                </code>
+                <Button
+                  id="copy-api-key-btn"
+                  variant="secondary"
+                  size="sm"
+                  onClick={copyApiKey}
+                >
+                  {copiedKey ? <Check size={14} /> : <Copy size={14} />}
+                  {copiedKey ? 'Copied!' : 'Copy'}
+                </Button>
+              </div>
+            </Card>
+          </div>
 
-          {/* Errors Table */}
-          <div>
-            <div className="flex items-center gap-3 mb-8">
-              <h2 className="text-2xl font-bold text-white">Errors</h2>
-              <span className="px-3 py-1 bg-slate-800/50 text-slate-300 text-sm rounded-full border border-slate-700/50">
-                {errors.length}
-              </span>
+          {/* ── Issues table ── */}
+          <div className="animate-fade-in-up delay-225">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-bold text-white">Issues</h2>
+                <span className="px-2.5 py-0.5 bg-slate-700/60 text-slate-300 text-xs rounded-full border border-slate-600/50 font-medium">
+                  {filteredErrors.length}
+                </span>
+              </div>
+
+              {/* Filter by type */}
+              {uniqueTypes.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <Filter size={13} className="text-slate-500" />
+                  <div className="flex items-center gap-1">
+                    {uniqueTypes.map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setFilterType(type)}
+                        className={[
+                          'px-3 py-1 rounded-lg text-xs font-medium transition-all duration-150',
+                          filterType === type
+                            ? 'bg-blue-600/20 border border-blue-500/40 text-blue-300'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/40',
+                        ].join(' ')}
+                      >
+                        {type === 'all' ? 'All' : getEventTypeMeta(type).label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {errors.length === 0 ? (
-              <Card className="text-center py-12">
-                <p className="text-slate-400">No errors reported yet. Your project is error-free! 🎉</p>
+            {filteredErrors.length === 0 ? (
+              <Card className="text-center py-16">
+                <div className="w-12 h-12 bg-emerald-500/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Check size={20} className="text-emerald-400" />
+                </div>
+                <p className="text-slate-300 font-semibold mb-1">No issues found</p>
+                <p className="text-slate-500 text-sm">
+                  {filterType !== 'all' ? 'Try removing the filter.' : 'Your project is error-free! 🎉'}
+                </p>
               </Card>
             ) : (
-              <Card className="overflow-hidden">
+              <Card noPadding className="overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-slate-700/50 bg-slate-800/30">
-                        <th className="px-6 py-4 text-left text-slate-300 font-semibold text-sm">Message</th>
-                        <th className="px-6 py-4 text-center text-slate-300 font-semibold text-sm">Occurrences</th>
-                        <th className="px-6 py-4 text-center text-slate-300 font-semibold text-sm">Type</th>
-                        <th className="px-6 py-4 text-right text-slate-300 font-semibold text-sm">Last Seen</th>
+                      <tr className="border-b border-slate-700/50 bg-slate-900/40">
+                        <th></th>
+                        <th className="px-6 py-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest ">Type</th>
+                        <th className="px-6 py-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Issue</th>
+                        <th className="px-6 py-3.5 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Count</th>
+                        <th className="px-6 py-3.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Last Seen</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {errors.map((error, idx) => (
-                        <tr
+                      {filteredErrors.map((error, idx) => (
+                        <IssueRow
                           key={error.fingerprint}
+                          error={error}
+                          index={idx}
                           onClick={() => navigate(`/error/${error.fingerprint}`)}
-                          className={`border-b border-slate-700/30 hover:bg-slate-800/40 cursor-pointer transition-all duration-200 ${
-                            idx % 2 === 0 ? 'bg-slate-900/20' : ''
-                          }`}
-                        >
-                          <td className="px-6 py-4">
-                            <div className="max-w-md">
-                              <p className="text-white font-medium truncate group-hover:text-blue-400 transition-colors">
-                                {getErrorMessage(error)}
-                              </p>
-                              <p className="text-slate-500 text-xs font-mono mt-1 truncate">{error.fingerprint}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <Badge variant={error.occurrences > 10 ? 'danger' : error.occurrences > 5 ? 'warning' : 'info'}>
-                              {error.occurrences}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <Badge variant={getErrorTypeBadgeVariant((error as any).error_type || error.errorType)}>
-                              {getErrorTypeLabel((error as any).error_type || error.errorType)}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4 text-right text-slate-400 text-sm">
-                            {formatDate((error as any).last_seen || error.lastSeen)}
-                          </td>
-                        </tr>
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -279,8 +374,9 @@ export const ProjectPage: React.FC = () => {
               </Card>
             )}
           </div>
+
         </div>
-      </div>
+      </main>
     </div>
   );
 };
