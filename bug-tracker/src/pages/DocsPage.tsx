@@ -1,27 +1,35 @@
-import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
-import { Zap } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { Copy, Check } from "lucide-react";
+import {  useSearchParams } from "react-router-dom";
+import { DOCS_SECTIONS } from "../types/docsSections";
+
 
 export function DocsPage() {
-  const [activeSection, setActiveSection] = useState<string>('getting-started');
-  const [copiedCode, setCopiedCode] = useState<string>('');
-    const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeSection, setActiveSection] = useState<string>(searchParams.get('section') || DOCS_SECTIONS[0].id);
+  const [copiedCode, setCopiedCode] = useState<string>("");
+
+  // Sync activeSection with URL query param
+  useEffect(() => {
+    const section = searchParams.get('section') || DOCS_SECTIONS[0].id;
+    setActiveSection(section);
+    setSearchParams({ section });
+  }, [searchParams]);
 
   const copyToClipboard = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(id);
-    setTimeout(() => setCopiedCode(''), 2000);
+    setTimeout(() => setCopiedCode(""), 2000);
   };
 
   const sections = [
     {
-      id: 'getting-started',
-      title: 'Getting Started',
-      icon: '🚀',
+      id: "getting-started",
+      title: "Getting Started",
+      icon: "🚀",
       subsections: [
         {
-          title: 'Introduction',
+          title: "Introduction",
           content: `BugTracker is a lightweight error monitoring platform that automatically captures JavaScript errors, API failures, and unhandled promise rejections from your frontend applications.
 
 With BugTracker, you get:
@@ -34,7 +42,7 @@ With BugTracker, you get:
 Let's get you started in just a few minutes.`,
         },
         {
-          title: 'Step 1: Create an Account & Login',
+          title: "Step 1: Create an Account & Login",
           content: `Before you can use BugTracker, you need to:
 
 1. Visit the BugTracker website
@@ -45,7 +53,7 @@ Let's get you started in just a few minutes.`,
 Once logged in, you'll have access to create projects and generate API keys.`,
         },
         {
-          title: 'Step 2: Create Your First Project',
+          title: "Step 2: Create Your First Project",
           content: `After logging in to your dashboard:
 
 1. Click the "Create Project" button
@@ -56,25 +64,25 @@ Once logged in, you'll have access to create projects and generate API keys.`,
 You'll see your project dashboard with statistics and error tracking.`,
         },
         {
-          title: 'Installation',
-          content: 'Install the BugTracker SDK via npm:',
+          title: "Installation",
+          content: "Install the BugTracker SDK via npm:",
           code: `npm install bug-tracker-sdk`,
         },
       ],
     },
     {
-      id: 'api-key',
-      title: 'API Key Generation',
-      icon: '🔐',
+      id: "api-key",
+      title: "API Key Generation",
+      icon: "🔐",
       subsections: [
         {
-          title: 'Understanding API Keys',
+          title: "Understanding API Keys",
           content: `An API Key is a unique identifier that allows your application to communicate with BugTracker's collector service. Each project has its own API key.
 
 Never share your API key with untrusted sources. It's safe to include in your frontend code since it only allows error reporting, not data access.`,
         },
         {
-          title: 'How to Generate an API Key',
+          title: "How to Generate an API Key",
           content: `When you create a new project in your BugTracker dashboard:
 
 1. Click "Create Project" button
@@ -86,7 +94,7 @@ Never share your API key with untrusted sources. It's safe to include in your fr
 The API key will look something like: "sk_live_a1b2c3d4e5f6g7h8i9j0"`,
         },
         {
-          title: 'Where to Find Your API Key',
+          title: "Where to Find Your API Key",
           content: `To view your API key later:
 
 1. Go to your Dashboard
@@ -98,7 +106,7 @@ The API key will look something like: "sk_live_a1b2c3d4e5f6g7h8i9j0"`,
 Each project has a unique API key. If you have multiple projects, each will have its own key.`,
         },
         {
-          title: 'Using Your API Key',
+          title: "Using Your API Key",
           content: `Once you have your API key, use it to initialize the SDK:`,
           code: `import { initBugTracker } from "bug-tracker-sdk";
 import axios from "axios";
@@ -113,13 +121,14 @@ initBugTracker({
       ],
     },
     {
-      id: 'sdk-setup',
-      title: 'SDK Setup Guide',
-      icon: '⚙️',
+      id: "sdk-setup",
+      title: "SDK Setup Guide",
+      icon: "⚙️",
       subsections: [
         {
-          title: 'Basic Setup',
-          content: 'Initialize BugTracker in your application as early as possible:',
+          title: "Basic Setup",
+          content:
+            "Initialize BugTracker in your application as early as possible:",
           code: `import { initBugTracker } from "bug-tracker-sdk";
 import axios from "axios";
 
@@ -131,8 +140,9 @@ initBugTracker({
 // Your app code here...`,
         },
         {
-          title: 'React Setup',
-          content: 'For React applications, initialize the SDK in your main.tsx or index.tsx:',
+          title: "React Setup",
+          content:
+            "For React applications, initialize the SDK in your main.tsx or index.tsx:",
           code: `// main.tsx
 import { initBugTracker } from 'bug-tracker-sdk'
 import axios from 'axios'
@@ -154,8 +164,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 )`,
         },
         {
-          title: 'Environment Variables',
-          content: 'Store sensitive information in environment variables:',
+          title: "Environment Variables",
+          content: "Store sensitive information in environment variables:",
           code: `// .env.local
 VITE_API_KEY=sk_live_your_api_key_here
 
@@ -171,13 +181,14 @@ initBugTracker({
       ],
     },
     {
-      id: 'error-tracking',
-      title: 'Error Tracking',
-      icon: '🎯',
+      id: "error-tracking",
+      title: "Error Tracking",
+      icon: "🎯",
       subsections: [
         {
-          title: 'Automatic Error Capturing',
-          content: 'BugTracker automatically captures these errors without any additional code:',
+          title: "Automatic Error Capturing",
+          content:
+            "BugTracker automatically captures these errors without any additional code:",
           code: `// 1. JavaScript Crashes
 const user = null;
 console.log(user.name); // Automatically tracked
@@ -202,8 +213,8 @@ axios.get('/api/users')
   })`,
         },
         {
-          title: 'Error Information Captured',
-          content: 'Each error report includes:',
+          title: "Error Information Captured",
+          content: "Each error report includes:",
           code: `{
   "error": {
     "message": "TypeError: Cannot read property 'name' of null",
@@ -229,12 +240,12 @@ axios.get('/api/users')
       ],
     },
     {
-      id: 'dashboard',
-      title: 'Using the Dashboard',
-      icon: '📊',
+      id: "dashboard",
+      title: "Using the Dashboard",
+      icon: "📊",
       subsections: [
         {
-          title: 'Dashboard Overview',
+          title: "Dashboard Overview",
           content: `The BugTracker dashboard gives you complete visibility into your application's errors:
 
 • Total Errors - Count of all errors in your app
@@ -245,7 +256,7 @@ axios.get('/api/users')
 All statistics update in real-time as errors are reported.`,
         },
         {
-          title: 'Project Dashboard',
+          title: "Project Dashboard",
           content: `When you click on a project:
 
 1. See a list of all errors in this project
@@ -260,7 +271,7 @@ Each project displays:
 • Real-time updates`,
         },
         {
-          title: 'Viewing Error Details',
+          title: "Viewing Error Details",
           content: `When you click on an error, you'll see:
 
 • Error Message - The main error text
@@ -274,7 +285,7 @@ Each project displays:
 • Fingerprint - Unique identifier for error grouping`,
         },
         {
-          title: 'Finding Your API Key in Dashboard',
+          title: "Finding Your API Key in Dashboard",
           content: `Your API key is displayed on the project page:
 
 1. Log in to BugTracker
@@ -288,13 +299,14 @@ Each time you create a new project, a unique API key is automatically generated.
       ],
     },
     {
-      id: 'best-practices',
-      title: 'Best Practices',
-      icon: '💡',
+      id: "best-practices",
+      title: "Best Practices",
+      icon: "💡",
       subsections: [
         {
-          title: 'Initialize Early',
-          content: 'Initialize BugTracker as the very first thing in your application:',
+          title: "Initialize Early",
+          content:
+            "Initialize BugTracker as the very first thing in your application:",
           code: `// ✅ Good - Initialize first
 import { initBugTracker } from 'bug-tracker-sdk'
 initBugTracker({ ... })
@@ -308,8 +320,8 @@ import App from './App'
 initBugTracker({ ... }) // Errors before this won't be tracked`,
         },
         {
-          title: 'Secure Your API Key',
-          content: 'Protect your API key with best practices:',
+          title: "Secure Your API Key",
+          content: "Protect your API key with best practices:",
           code: `// ✅ Good - Use environment variables
 const apiKey = import.meta.env.VITE_API_KEY
 initBugTracker({
@@ -324,8 +336,8 @@ initBugTracker({
 })`,
         },
         {
-          title: 'Handle Errors Gracefully',
-          content: 'Catch and log errors appropriately:',
+          title: "Handle Errors Gracefully",
+          content: "Catch and log errors appropriately:",
           code: `// ✅ Good - Let errors be tracked
 async function fetchUser(id: string) {
   try {
@@ -348,82 +360,19 @@ async function fetchUser(id: string) {
   }
 }`,
         },
-
       ],
-    }
+    },
   ];
 
   // Filter to show only the active section
-  const displaySections = sections.filter(s => s.id === activeSection);
+  const displaySections = sections.filter((s) => s.id === activeSection);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      {/* Header */}
-      <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Zap size={24} className="text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">
-                BugTracker
-              </span>
-            </div>
-
-
-            {/* CTA Buttons */}
-            <div className="hidden md:flex items-center gap-4">
-              <button
-                onClick={() => navigate('/login')}
-                className="px-4 py-2 text-slate-300 hover:text-white transition-colors"
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => navigate('/login')}
-                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-lg font-medium transition-all duration-200 active:scale-95"
-              >
-                Get Started
-              </button>
-            </div>
-
-          </div>
-
-         
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid md:grid-cols-4 gap-8">
-          {/* Sidebar Navigation */}
-          <div className="md:col-span-1">
-            <div className="sticky top-24 space-y-2">
-              <div className="px-4 py-2 text-sm font-semibold text-slate-400 uppercase tracking-wider">
-                Sections
-              </div>
-              {sections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
-                    activeSection === section.id
-                      ? 'bg-blue-600/20 border border-blue-500/50 text-blue-400'
-                      : 'hover:bg-slate-800/50 text-slate-300 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{section.icon}</span>
-                    <span className="font-medium">{section.title}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="space-y-8">
           {/* Main Content */}
-          <div className="md:col-span-3 space-y-8">
+          <div className="space-y-8">
             {displaySections.map((section) => (
               <div key={section.id} className="space-y-6">
                 <div className="flex items-center gap-3 mb-8">
@@ -436,7 +385,9 @@ async function fetchUser(id: string) {
                     key={idx}
                     className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6 hover:border-blue-500/30 transition-all"
                   >
-                    <h3 className="text-xl font-semibold mb-4 text-blue-400">{subsection.title}</h3>
+                    <h3 className="text-xl font-semibold mb-4 text-blue-400">
+                      {subsection.title}
+                    </h3>
 
                     <p className="text-slate-300 mb-4 leading-relaxed whitespace-pre-wrap">
                       {subsection.content}
@@ -445,10 +396,17 @@ async function fetchUser(id: string) {
                     {subsection.code && (
                       <div className="relative">
                         <pre className="bg-slate-950 rounded-lg p-4 overflow-x-auto border border-slate-600/50">
-                          <code className="text-sm text-slate-200 font-mono">{subsection.code}</code>
+                          <code className="text-sm text-slate-200 font-mono">
+                            {subsection.code}
+                          </code>
                         </pre>
                         <button
-                          onClick={() => copyToClipboard(subsection.code!, `${section.id}-${idx}`)}
+                          onClick={() =>
+                            copyToClipboard(
+                              subsection.code!,
+                              `${section.id}-${idx}`,
+                            )
+                          }
                           className="absolute top-3 right-3 p-2 bg-slate-700/50 hover:bg-slate-600 rounded transition-colors"
                           title="Copy to clipboard"
                         >
@@ -469,7 +427,8 @@ async function fetchUser(id: string) {
             <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl p-8 text-center mt-12">
               <h3 className="text-2xl font-bold mb-3">Ready to get started?</h3>
               <p className="text-slate-300 mb-6">
-                Create an account and start monitoring your application errors in minutes.
+                Create an account and start monitoring your application errors
+                in minutes.
               </p>
               <a
                 href="/login"

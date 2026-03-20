@@ -62,7 +62,7 @@ export const LandingPage: React.FC = () => {
                 Pricing
               </button>
               <a
-                href="/docs"
+                href="/login"
                 className="text-slate-300 hover:text-white transition-colors"
               >
                 Docs
@@ -477,12 +477,12 @@ initBugTracker({
               <h4 className="font-bold mb-4">Resources</h4>
               <ul className="space-y-2 text-slate-400 text-sm">
                 <li>
-                  <a href="/docs" className="hover:text-white transition-colors">
+                  <a href="/login" className="hover:text-white transition-colors">
                     Docs
                   </a>
                 </li>
                 <li>
-                  <a href="/docs" className="hover:text-white transition-colors">
+                  <a href="/login" className="hover:text-white transition-colors">
                     API Reference
                   </a>
                 </li>

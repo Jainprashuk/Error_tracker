@@ -1,36 +1,55 @@
-"""
-Fingerprint generation utility for error deduplication.
-Creates a unique hash identifier for errors to detect duplicates.
-"""
-
 import hashlib
+import re
 
 
-def generate_fingerprint(endpoint: str, message: str):
-    """
-    Generate a unique fingerprint/hash for an error.
-    
-    This function creates a SHA256 hash of the error endpoint and message.
-    Same endpoint + same message will always produce the same fingerprint,
-    which allows us to identify duplicate errors.
-    
-    Args:
-        endpoint (str): The URL/endpoint where the error occurred
-        message (str): The error message text
-    
-    Returns:
-        str: A 64-character SHA256 hex digest (unique identifier for this error)
-    
-    Example:
-        fingerprint = generate_fingerprint("https://api.example.com/users", "TypeError: Cannot read property")
-        # Returns: "a1b2c3d4e5f6... (64 char hex string)"
-    """
-    
-    # Combine endpoint and message into a single string
-    base = f"{endpoint}-{message}"
+def normalize_endpoint(endpoint: str) -> str:
+    if not endpoint:
+        return "unknown"
 
-    # Create SHA256 hash of the combined string and convert to hexadecimal
-    # SHA256 is cryptographically secure and produces consistent results
-    fingerprint = hashlib.sha256(base.encode()).hexdigest()
+    endpoint = endpoint.split("?")[0]
 
-    return fingerprint
+    endpoint = re.sub(r"/\d+", "/:id", endpoint)
+    endpoint = re.sub(r"/[a-f0-9-]{8,}", "/:uuid", endpoint)
+
+    return endpoint
+
+
+def normalize_message(message: str) -> str:
+    if not message:
+        return "unknown"
+
+    message = re.sub(r"\d+", "", message)
+    message = re.sub(r"'[^']*'", "''", message)
+
+    return message.strip()
+
+
+def get_top_stack_frame(stack: str) -> str:
+    if not stack:
+        return "no_stack"
+
+    lines = stack.split("\n")
+
+    for line in lines:
+        if "node_modules" not in line and line.strip():
+            return line.strip()
+
+    return lines[0].strip() if lines else "no_stack"
+
+
+def generate_fingerprint(
+    endpoint: str,
+    message: str,
+    stack: str,
+    event_type: str,
+    status: int = None
+):
+    normalized_endpoint = normalize_endpoint(endpoint)
+    normalized_message = normalize_message(message)
+    top_frame = get_top_stack_frame(stack)
+
+    status_part = str(status) if status else "no_status"
+
+    base = f"{event_type}|{status_part}|{normalized_endpoint}|{normalized_message}|{top_frame}"
+
+    return hashlib.sha256(base.encode()).hexdigest()

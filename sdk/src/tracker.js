@@ -36,7 +36,7 @@ export function initGlobalErrorTracking(project) {
       project: project,
       // ISO timestamp of when the error occurred
       timestamp: new Date().toISOString(),
-      error_type: "unhandled_exception",
+      event_type: "unhandled_exception",
 
       // Error details
       error: {

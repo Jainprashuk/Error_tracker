@@ -1,32 +1,42 @@
 import { sendError } from "./sender.js";
+import { takeScreenshot } from "./takeScreenshot.js";
+import { createBasePayload } from "./utils/normalizer.js";
 
-export function setupAxiosInterceptor(axios) {
+export function setupAxiosInterceptor(axios , takeScreenshots = false) {
 
   axios.interceptors.response.use(
 
     (response) => response,
 
-    (error) => {
+    async (error) => {
 
-      const payload = {
-        timestamp: new Date().toISOString(),
-        error_type: "api_error",
-        request: {
-          url: error.config?.url,
-          method: error.config?.method,
-          payload: error.config?.data
-        },
+      let screenshot = null;
+      if(takeScreenshots){
+        screenshot = await takeScreenshot();
+      }
 
-        response: {
-          status: error.response?.status,
-          data: error.response?.data
-        },
+      const payload = createBasePayload({
+  event_type: "api_error",
 
-        error: {
-          message: error.message,
-          stack: error.stack
-        }
-      };
+  error: {
+    message: error.message,
+    stack: error.stack,
+    type: "axios"
+  },
+
+  request: {
+    url: error.config?.url,
+    method: error.config?.method,
+    payload: error.config?.data
+  },
+
+  response: {
+    status: error.response?.status,
+    data: error.response?.data
+  },
+
+  screenshot
+});
 
       sendError(payload);
 

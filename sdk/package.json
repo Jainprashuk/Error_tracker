@@ -1,13 +1,45 @@
 {
   "name": "bug-tracker-sdk",
-  "version": "1.0.8",
-  "description": "",
-  "main": "src/index.js",
+  "version": "1.0.10",
+  "description": "Lightweight JavaScript SDK for error tracking, logging, and performance monitoring in web applications",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsup src/index.js --format esm,cjs --dts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "keywords": [
+    "bug tracker",
+    "error tracking",
+    "javascript sdk",
+    "frontend monitoring",
+    "error logger",
+    "bug reporting",
+    "performance monitoring",
+    "web sdk",
+    "logging tool"
+  ],
+  "author": "Prashuk Jain",
+  "license": "MIT",
+  "homepage": "https://github.com/your-username/bug-tracker-sdk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/bug-tracker-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/bug-tracker-sdk/issues"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "html2canvas": "^1.4.1"
+  }
 }

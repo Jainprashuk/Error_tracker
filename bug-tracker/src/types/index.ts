@@ -43,6 +43,10 @@ export interface Error {
 
 export interface ErrorDetail extends Error {
   projectId: string;
+  screenshot_url?: string;
+  performance?: any;
+  metadata?: Record<string, any>;
+
 }
 
 export interface User {
