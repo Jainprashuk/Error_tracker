@@ -9,6 +9,7 @@ A lightweight JavaScript SDK for automatically tracking frontend errors, API fai
 - ✅ **Stack Trace Parsing** - Extracts file, line, and column information from error stacks
 - ✅ **Smart Fingerprinting** - Groups similar errors automatically
 - ✅ **Lightweight** - Minimal overhead on your application
+- ✅ **Image Capture** - Capture Image At the time Of bug
 ---
 
 ## Installation
@@ -57,6 +58,95 @@ After creating the project:
 - An **API Key will be automatically generated**.
 - Copy the API key from the dashboard.
 
+## ⚙️ Feature Configuration
+
+BugTracker SDK allows you to enable or customize features based on your needs.
+
+### Basic Configuration
+
+```javascript
+initBugTracker({
+  apiKey: "your-api-key",
+  axios,
+
+  features: {
+    captureScreenshots: {
+      fetchErrors: true,
+      axiosErrors: true,
+      consoleErrors: true,
+    },
+
+    manualBugReport: {
+      captureScreenshot: true,
+
+      modalSchema: {
+        title: "Report an Issue",
+        fields: [
+          { name: "description", label: "Description", type: "textarea" },
+          { name: "email", label: "Email", type: "text" },
+        ],
+      },
+    },
+
+    capturePerformance: true,
+  },
+});
+```
+
+---
+
+### 🧩 Available Feature Options
+
+#### 📸 Screenshot Capture
+
+| Option          | Description                           |
+| --------------- | ------------------------------------- |
+| `fetchErrors`   | Capture screenshots on fetch failures |
+| `axiosErrors`   | Capture screenshots on axios failures |
+| `consoleErrors` | Capture screenshots on console errors |
+
+---
+
+#### 📝 Manual Bug Reporting
+
+Customize feedback UI:
+
+```javascript
+manualBugReport: {
+  captureScreenshot: true,
+  modalSchema: {
+    title: "Send Feedback",
+    fields: [
+      { name: "description", type: "textarea" },
+      { name: "email", type: "text" },
+      {
+        name: "category",
+        type: "select",
+        options: ["Bug", "UI Issue", "Suggestion"],
+      },
+    ],
+  },
+}
+```
+
+---
+
+#### ⚡ Performance Tracking
+
+| Option               | Description                   |
+| -------------------- | ----------------------------- |
+| `capturePerformance` | Enable performance monitoring |
+
+---
+
+### 💡 Tips
+
+* Disable screenshot capture in **high-performance apps** if not needed
+* Use **manualBugReport** to collect user feedback directly
+* Enable all tracking in **production** for maximum visibility
+
+---
+
 
 ### For React Applications
 
@@ -68,7 +158,6 @@ import axios from 'axios';
 // Initialize early in your application
 initBugTracker({
   project: 'my-react-app',
-  collectorUrl: 'http://127.0.0.1:8000',
   axios
 });
 
@@ -165,7 +254,6 @@ import axios from 'axios';
 
 initBugTracker({
   project: 'my-app',
-  collectorUrl: 'http://127.0.0.1:8000',
   axios
 });
 

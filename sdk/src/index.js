@@ -13,9 +13,7 @@ export function initBugTracker(config = {}) {
       axiosErrors: true,
       consoleErrors: true,
     },
-
     capturePerformance: false,
-
     manualBugReport: null
   };
 
