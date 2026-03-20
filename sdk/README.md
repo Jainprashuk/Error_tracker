@@ -78,7 +78,15 @@ initBugTracker({
 
     manualBugReport: {
       captureScreenshot: true,
-
+      floatingButton: () => {
+        const btn = document.createElement("button");
+        btn.textContent = "💬 Feedback";
+        btn.style.background = "#6366f1";
+        btn.style.color = "white";
+        btn.style.padding = "10px 14px";
+        btn.style.borderRadius = "8px";
+        return btn;
+      },
       modalSchema: {
         title: "Report an Issue",
         fields: [

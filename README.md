@@ -1,325 +1,269 @@
-# Error Tracker - Complete System Documentation
+# BugTracker SDK
 
-An automated error tracking and monitoring system for JavaScript applications with a FastAPI backend collector.
+A lightweight JavaScript SDK for automatically tracking frontend errors, API failures, and console issues in your applications. The SDK works seamlessly with both Axios and Fetch APIs.
 
-## 📚 Documentation Added
+## Features
 
-I have comprehensively documented your entire Error Tracker codebase with:
+- ✅ **Automatic Error Tracking** - Captures JavaScript runtime errors and unhandled promise rejections
+- ✅ **API Monitoring** - Tracks Axios and Fetch API failures with full request/response data
+- ✅ **Stack Trace Parsing** - Extracts file, line, and column information from error stacks
+- ✅ **Smart Fingerprinting** - Groups similar errors automatically
+- ✅ **Lightweight** - Minimal overhead on your application
+- ✅ **Image Capture** - Capture Image At the time Of bug
+---
 
-### ✅ Code Comments
-- **All 11 files** in collector and SDK now have detailed comments
-- Function/class docstrings explaining purpose and parameters
-- Inline comments explaining complex logic
-- Code examples showing usage
+## Installation
 
-### ✅ Architecture Documentation
-- **ARCHITECTURE.md** - Complete technical guide (50+ sections)
-- **QUICK_REFERENCE.md** - Developer-friendly quick guide
-- **DOCUMENTATION_COMPLETE.md** - Summary of all documentation
+```bash
+npm install bug-tracker-sdk
+```
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-### For Understanding the System
-1. Read `QUICK_REFERENCE.md` (30 minutes) - Get overview
-2. Read `ARCHITECTURE.md` (1 hour) - Deep technical details
-3. Review code files - See implementation details
+### Basic Setup
 
-### For Running the System
-```bash
-# Backend
-cd collector
-python -m uvicorn app.main:app --reload
+```javascript
+import { initBugTracker } from "bug-tracker-sdk";
+import axios from "axios";
 
-# Frontend - Add to your app
-import { initBugTracker } from './sdk/src/index.js';
 initBugTracker({
-  project: 'my-app',
-  collectorUrl: 'http://localhost:8000'
+  apiKey: "your-api-key",
+  axios
+});
+
+// That's it! Your app is now tracking errors.
+```
+
+<!-- TO GET APIKEY -->
+
+## 🔑 How to Generate an API Key
+
+To start using , you first need to generate a project API key from the dashboard.
+
+### Step 1: Open the Dashboard
+Go to the dashboard and Login:
+
+👉 [bugtrace.jainprashuk.in](https://bugtrace.jainprashuk.in/)
+
+### Step 2: Create a Project
+1. Click the **"Create Project"** button.
+2. Enter your **Project Name**.
+3. Click **Create Project**.
+
+### Step 3: Copy Your API Key
+After creating the project:
+
+- An **API Key will be automatically generated**.
+- Copy the API key from the dashboard.
+
+## ⚙️ Feature Configuration
+
+BugTracker SDK allows you to enable or customize features based on your needs.
+
+### Basic Configuration
+
+```javascript
+initBugTracker({
+  apiKey: "your-api-key",
+  axios,
+
+  features: {
+    captureScreenshots: {
+      fetchErrors: true,
+      axiosErrors: true,
+      consoleErrors: true,
+    },
+
+    manualBugReport: {
+      captureScreenshot: true,
+      floatingButton: () => {
+        const btn = document.createElement("button");
+        btn.textContent = "💬 Feedback";
+        btn.style.background = "#6366f1";
+        btn.style.color = "white";
+        btn.style.padding = "10px 14px";
+        btn.style.borderRadius = "8px";
+        return btn;
+      },
+      modalSchema: {
+        title: "Report an Issue",
+        fields: [
+          { name: "description", label: "Description", type: "textarea" },
+          { name: "email", label: "Email", type: "text" },
+        ],
+      },
+    },
+
+    capturePerformance: true,
+  },
 });
 ```
 
 ---
 
-## 📖 Documentation Files
+### 🧩 Available Feature Options
 
-### QUICK_REFERENCE.md
-- What the project does
-- Component breakdown
-- Data flow overview
-- File-by-file guide
-- Running instructions
-- Common Q&A
-- **Perfect for:** New developers, quick lookups
+#### 📸 Screenshot Capture
 
-### ARCHITECTURE.md
-- System overview
-- Backend details (main, routes, models, services, utils)
-- Frontend details (tracker, sender, interceptors)
-- Data flow diagrams
-- Key concepts (fingerprinting, deduplication)
-- Production considerations
-- **Perfect for:** Technical deep dives, architecture decisions
-
-### DOCUMENTATION_COMPLETE.md
-- Summary of what was added
-- Navigation guide
-- Learning resources
-- **Perfect for:** Understanding the documentation itself
+| Option          | Description                           |
+| --------------- | ------------------------------------- |
+| `fetchErrors`   | Capture screenshots on fetch failures |
+| `axiosErrors`   | Capture screenshots on axios failures |
+| `consoleErrors` | Capture screenshots on console errors |
 
 ---
 
-## 🎯 System Overview
+#### 📝 Manual Bug Reporting
 
-**Error Tracker** automatically captures and monitors errors from JavaScript applications:
+Customize feedback UI:
 
-```
-User App
-   ↓
-SDK captures errors
-   ↓
-Sends to Backend (/report endpoint)
-   ↓
-Backend validates & generates fingerprint
-   ↓
-Deduplicates errors
-   ↓
-Stores in MongoDB
-   ↓
-View analytics and patterns
-```
-
----
-
-## 📁 Documented Files
-
-### Backend (Python/FastAPI)
-- ✅ `app/main.py` - Application setup
-- ✅ `app/models/error_model.py` - Data validation
-- ✅ `app/routes/error_routes.py` - API endpoints
-- ✅ `app/services/db.py` - Database connection
-- ✅ `app/services/ticket_service.py` - Error processing
-- ✅ `app/utils/fingerprint.py` - Deduplication
-
-### Frontend (JavaScript/SDK)
-- ✅ `sdk/src/index.js` - Main entry point
-- ✅ `sdk/src/tracker.js` - Uncaught error handler
-- ✅ `sdk/src/sender.js` - HTTP sender
-- ✅ `sdk/src/axiosInterceptor.js` - Axios monitoring
-- ✅ `sdk/src/fetchInterceptor.js` - Fetch monitoring
-
----
-
-## 💡 Key Concepts
-
-### Fingerprinting
-Creates a unique hash for each error to identify duplicates:
-```
-Same endpoint + same message = same fingerprint = can group them
-```
-
-### Deduplication
-Automatically groups identical errors together:
-```
-First report → Create new entry
-Second report (same fingerprint) → Increment occurrence count
-Result → One entry showing total occurrences
-```
-
-### Error Payload Structure
-Every error report contains:
-- **Project** - Which app reported it
-- **Timestamp** - When it occurred
-- **Request** - (Optional) HTTP request details
-- **Response** - (Optional) HTTP response details
-- **Error** - Message and stack trace
-- **Client** - Browser/URL information
-
----
-
-## 🔍 What Gets Tracked
-
-### Global JavaScript Errors
-- Uncaught exceptions
-- Type errors
-- Reference errors
-- Syntax errors
-- Any unhandled error
-
-### Network Errors
-- Failed Fetch API calls
-- Failed Axios requests
-- HTTP error responses (4xx, 5xx)
-- Network timeouts
-- Connection failures
-
-### Request Details
-- URL/endpoint
-- HTTP method
-- Request payload
-- Response status
-- Response data
-- Browser information
-
----
-
-## 🛠️ Technologies Used
-
-**Backend:**
-- FastAPI - Modern Python web framework
-- PyMongo - MongoDB driver
-- Pydantic - Data validation
-
-**Frontend:**
-- Vanilla JavaScript (no dependencies)
-- Fetch API - For HTTP communication
-- Optional: Axios support
-
-**Database:**
-- MongoDB - Document storage
-
----
-
-## 📊 Data Storage
-
-Errors are stored in MongoDB with:
 ```javascript
-{
-  _id: ObjectId("..."),
-  fingerprint: "unique_hash",
-  project: "app-name",
-  occurrences: 42,
-  first_seen: timestamp,
-  last_seen: timestamp,
-  payload: { /* full error details */ }
+manualBugReport: {
+  captureScreenshot: true,
+  modalSchema: {
+    title: "Send Feedback",
+    fields: [
+      { name: "description", type: "textarea" },
+      { name: "email", type: "text" },
+      {
+        name: "category",
+        type: "select",
+        options: ["Bug", "UI Issue", "Suggestion"],
+      },
+    ],
+  },
 }
 ```
 
 ---
 
-## 🔐 Production Considerations
+#### ⚡ Performance Tracking
 
-### Security
-- Move database credentials to `.env` file
-- Add API key authentication
-- Restrict CORS to your domain
-- Use HTTPS
-
-### Performance
-- Add rate limiting
-- Implement caching
-- Create database indexes
-- Archive old errors
-
-### Monitoring
-- Add `/health` endpoint
-- Set up error alerts
-- Create dashboards
-- Monitor database size
+| Option               | Description                   |
+| -------------------- | ----------------------------- |
+| `capturePerformance` | Enable performance monitoring |
 
 ---
 
-## 📚 Reading Guide
+### 💡 Tips
 
-### "I want to understand the system quickly"
-→ Read **QUICK_REFERENCE.md**
-
-### "I need to understand the architecture"
-→ Read **ARCHITECTURE.md**
-
-### "I need to modify/debug the code"
-→ Read the file's comments in the code
-
-### "I'm onboarding a new developer"
-→ Have them read QUICK_REFERENCE.md then ARCHITECTURE.md
+* Disable screenshot capture in **high-performance apps** if not needed
+* Use **manualBugReport** to collect user feedback directly
+* Enable all tracking in **production** for maximum visibility
 
 ---
 
-## 🎯 Next Steps
 
-1. **Understand the System**
-   - Read QUICK_REFERENCE.md
-   - Read ARCHITECTURE.md
-   - Review code comments
+### For React Applications
 
-2. **Set Up Development**
-   - Configure MongoDB connection
-   - Start backend: `python -m uvicorn app.main:app --reload`
-   - Add SDK to frontend app
+```typescript
+import React from 'react';
+import { initBugTracker } from 'bug-tracker-sdk';
+import axios from 'axios';
 
-3. **Production Readiness**
-   - Move credentials to .env
-   - Add error handling
-   - Implement logging
-   - Add rate limiting
-   - Set up monitoring
+// Initialize early in your application
+initBugTracker({
+  project: 'my-react-app',
+  axios
+});
 
-4. **Team Collaboration**
-   - Share documentation with team
-   - Use QUICK_REFERENCE.md for onboarding
-   - Code comments for implementation details
+function App() {
+  return <div>Your app here</div>;
+}
 
----
-
-## 📞 Quick Reference
-
-| Question | Answer |
-|----------|--------|
-| What is this? | Error tracking system for JavaScript apps |
-| How does it work? | SDK captures errors → Backend deduplicates → MongoDB stores |
-| How is deduplication done? | SHA256 fingerprint of endpoint + message |
-| Where's the architecture? | See ARCHITECTURE.md |
-| How do I use the SDK? | Call `initBugTracker()` with config |
-| What errors are tracked? | Uncaught errors, network errors, HTTP errors |
-| Where does it store data? | MongoDB |
-| Can it scale? | Yes, MongoDB can handle millions of errors |
-| Is it production-ready? | Needs security/monitoring setup (see docs) |
-| How do I debug? | Check code comments and ARCHITECTURE.md |
-
----
-
-## 📖 Documentation Structure
-
-```
-Error Tracker/
-├── README.md (you are here)
-├── QUICK_REFERENCE.md ← START HERE
-├── ARCHITECTURE.md ← TECHNICAL DETAILS
-├── DOCUMENTATION_COMPLETE.md ← SUMMARY
-├── collector/
-│   └── app/
-│       ├── main.py ✅ FULLY COMMENTED
-│       ├── models/error_model.py ✅ FULLY COMMENTED
-│       ├── routes/error_routes.py ✅ FULLY COMMENTED
-│       ├── services/
-│       │   ├── db.py ✅ FULLY COMMENTED
-│       │   └── ticket_service.py ✅ FULLY COMMENTED
-│       └── utils/fingerprint.py ✅ FULLY COMMENTED
-└── sdk/src/
-    ├── index.js ✅ FULLY COMMENTED
-    ├── tracker.js ✅ FULLY COMMENTED
-    ├── sender.js ✅ FULLY COMMENTED
-    ├── axiosInterceptor.js ✅ FULLY COMMENTED
-    └── fetchInterceptor.js ✅ FULLY COMMENTED
+export default App;
 ```
 
 ---
 
-## ✨ Summary
+## What It Captures
 
-Your Error Tracker codebase is now:
+### 1. JavaScript Errors & Crashes
 
-✅ **Well-Commented** - Every file has clear, detailed comments
-✅ **Well-Documented** - Architecture and quick reference guides included
-✅ **Easy to Understand** - Docstrings and examples for all functions
-✅ **Easy to Maintain** - Clear logic and purpose documented
-✅ **Easy to Extend** - Architecture clearly explained
-✅ **Production-Ready** - Security and performance considerations included
+Automatically catches uncaught exceptions:
+
+```javascript
+// This error is automatically reported
+const user = null;
+console.log(user.name); // TypeError: Cannot read property 'name' of null
+```
+
+### 2. Unhandled Promise Rejections
+
+```javascript
+// This rejection is automatically tracked
+fetch('/api/data').catch(error => {
+  throw error; // Unhandled rejection caught
+});
+```
+
+### 3. Axios API Failures
+
+```javascript
+// Failed requests are automatically tracked
+const response = await axios.get('/api/users');
+// 4xx and 5xx responses are reported
+```
+
+### 4. Fetch API Failures
+
+```javascript
+// Fetch errors and non-200 responses are tracked
+const response = await fetch('/api/data');
+if (!response.ok) {
+  // Non-200 responses are reported
+}
+```
 
 ---
 
-**Start reading:** [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) - Get overview in 30 minutes!
 
-**Deep dive:** [ARCHITECTURE.md](./ARCHITECTURE.md) - Understand the system completely!
 
+### Example with All Options
+
+```javascript
+import { initBugTracker } from "bug-tracker-sdk";
+import axios from "axios";
+
+initBugTracker({
+  apiKey: "sk_live_xxxxx",
+  axios,
+});
+```
+
+---
+
+
+
+## Integration with BugTracker Dashboard
+
+Once errors are reported to your BugTracker collector, they appear in the dashboard at:
+
+- **View all errors** - See every error across your application
+- **Group by type** - Similar errors are automatically grouped
+- **Track occurrences** - See how many times an error has happened
+- **Full stack traces** - Click into errors to see complete details
+- **Timeline** - View first seen and last seen timestamps
+
+---
+
+## Best Practices
+
+### 1. Initialize Early
+
+Initialize the SDK as early as possible in your application, preferably before any other code:
+
+```javascript
+// app.js or main.tsx
+import { initBugTracker } from 'bug-tracker-sdk';
+import axios from 'axios';
+
+initBugTracker({
+  project: 'my-app',
+  axios
+});
+
+// Rest of your app initialization...
+```

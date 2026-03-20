@@ -1,6 +1,6 @@
 {
   "name": "bug-tracker-sdk",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Lightweight JavaScript SDK for error tracking, logging, and performance monitoring in web applications",
   "main": "dist/index.js",
   "module": "dist/index.js",
