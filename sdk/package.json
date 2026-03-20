@@ -1,6 +1,6 @@
 {
   "name": "bug-tracker-sdk",
-  "version": "1.0.8",
+  "version": "1.0.10",
   "description": "Lightweight JavaScript SDK for error tracking, logging, and performance monitoring in web applications",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -8,6 +8,9 @@
   "files": [
     "dist"
   ],
+  "scripts": {
+    "build": "tsup src/index.js --format esm,cjs --dts"
+  },
   "keywords": [
     "bug tracker",
     "error tracking",
@@ -31,5 +34,12 @@
   },
   "exports": {
     ".": "./dist/index.js"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "html2canvas": "^1.4.1"
   }
 }
