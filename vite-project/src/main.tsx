@@ -6,7 +6,7 @@ import { initBugTracker } from "bug-tracker-sdk"
 import axios from "axios"
 
 initBugTracker({
-  apiKey: "proj_fa7846173b34f75dc02f36e3",
+  apiKey: "proj_b964c57521d126f79d6bc7c2",
   collectorUrl: 'http://127.0.0.1:8000',
   features: {
     manualBugReport: {

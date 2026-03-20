@@ -1,7 +1,8 @@
 import React from 'react';
-import { LogOut, Home, Zap, Bug, LayoutDashboard } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { LogOut, Zap, Bug, LayoutDashboard } from 'lucide-react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
+import { DOCS_SECTIONS } from '../types/docsSections';
 
 interface NavItem {
   label: string;
@@ -22,7 +23,17 @@ export const Sidebar: React.FC = () => {
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+    {
+      label: 'Docs',
+      icon: Zap,
+      href: '/docs',
+    }
   ];
+
+  // For docs subtabs
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isDocs = location.pathname === '/docs';
+  const docsActiveSection = searchParams.get('section') || DOCS_SECTIONS[0].id;
 
   const isActive = (href: string) =>
     location.pathname === href || location.pathname.startsWith(href + '/');
@@ -57,37 +68,55 @@ export const Sidebar: React.FC = () => {
           const active = isActive(item.href);
 
           return (
-            <button
-              key={item.href}
-              id={`nav-${item.label.toLowerCase().replace(' ', '-')}`}
-              onClick={() => navigate(item.href)}
-              style={{ animationDelay: `${idx * 50}ms` }}
-              className={[
-                'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 group text-left animate-fade-in-up',
-                active
-                  ? 'bg-blue-600/20 border border-blue-500/30 text-blue-300 shadow-lg shadow-blue-500/10'
-                  : 'text-slate-400 hover:bg-slate-700/40 hover:text-slate-200 border border-transparent hover:border-slate-700/50',
-              ].join(' ')}
-            >
-              <div className={[
-                'w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200',
-                active ? 'bg-blue-500/20' : 'group-hover:bg-slate-600/50',
-              ].join(' ')}>
-                <Icon size={16} className={active ? 'text-blue-400' : ''} />
-              </div>
-
-              <span className="text-sm font-medium flex-1">{item.label}</span>
-
-              {item.badge !== undefined && (
-                <span className="text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/30 px-1.5 py-0.5 rounded-full">
-                  {item.badge}
-                </span>
+            <div key={item.href}>
+              <button
+                id={`nav-${item.label.toLowerCase().replace(' ', '-')}`}
+                onClick={() => navigate(item.href)}
+                style={{ animationDelay: `${idx * 50}ms` }}
+                className={[
+                  'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 group text-left animate-fade-in-up',
+                  active
+                    ? 'bg-blue-600/20 border border-blue-500/30 text-blue-300 shadow-lg shadow-blue-500/10'
+                    : 'text-slate-400 hover:bg-slate-700/40 hover:text-slate-200 border border-transparent hover:border-slate-700/50',
+                ].join(' ')}
+              >
+                <div className={[
+                  'w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200',
+                  active ? 'bg-blue-500/20' : 'group-hover:bg-slate-600/50',
+                ].join(' ')}>
+                  <Icon size={16} className={active ? 'text-blue-400' : ''} />
+                </div>
+                <span className="text-sm font-medium flex-1">{item.label}</span>
+                {item.badge !== undefined && (
+                  <span className="text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/30 px-1.5 py-0.5 rounded-full">
+                    {item.badge}
+                  </span>
+                )}
+                {active && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.8)]" />
+                )}
+              </button>
+              {/* Docs subtabs */}
+              {item.href === '/docs' && isDocs && (
+                <div className="ml-7 mt-2 flex flex-col gap-1">
+                  {DOCS_SECTIONS.map((section) => (
+                    <button
+                      key={section.id}
+                      onClick={() => setSearchParams({ section: section.id })}
+                      className={[
+                        'flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all',
+                        docsActiveSection === section.id
+                          ? 'bg-blue-700/30 text-blue-300 font-semibold'
+                          : 'text-slate-400 hover:bg-slate-700/40 hover:text-white',
+                      ].join(' ')}
+                    >
+                      <span className="text-base">{section.icon}</span>
+                      <span className="text-xs">{section.title}</span>
+                    </button>
+                  ))}
+                </div>
               )}
-
-              {active && (
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.8)]" />
-              )}
-            </button>
+            </div>
           );
         })}
       </nav>

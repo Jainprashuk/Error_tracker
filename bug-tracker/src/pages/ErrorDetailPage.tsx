@@ -193,6 +193,7 @@ export const ErrorDetailPage: React.FC = () => {
     { id: 'request', label: 'Request / Response', icon: <Globe size={13} /> },
     { id: 'perf', label: 'Performance', icon: <Zap size={13} /> },
     { id: 'screen', label: 'Screenshot', icon: <Image size={13} /> },
+    { id: 'info', label: 'Info', icon: <Image size={13} />, show: error?.errorType === "manual" }
   ];
 
   console.log(error, "<<< ERROR DETAIL >>>");
@@ -206,7 +207,7 @@ export const ErrorDetailPage: React.FC = () => {
       <div className="fixed top-0 right-0 w-96 h-96 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-0 left-64 w-80 h-80 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
 
-      <main className="flex-1 ml-64 overflow-auto">
+      <main className="overflow-auto flex-1">
         <div className="p-8 space-y-7 animate-fade-in-up">
 
           {/* ── Header ── */}
@@ -221,7 +222,6 @@ export const ErrorDetailPage: React.FC = () => {
               <div className="flex items-center flex-wrap gap-2 mb-2">
                 <Badge variant={typeVariant} dot>{typeLabel}</Badge>
                 <span className="text-slate-600 text-xs">·</span>
-                <span className="text-xs text-slate-500 font-medium">{lastSeenDate.relative}</span>
               </div>
               <h1 className="text-xl font-bold text-white break-words leading-tight mb-1">
                 {error.message}
@@ -513,6 +513,54 @@ export const ErrorDetailPage: React.FC = () => {
                     </p>
                   </div>
                 )}
+              </Card>
+            )}
+
+            {activeTab === 'info' && (
+              <Card>
+
+                {/* Header */}
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="w-8 h-8 bg-purple-500/15 rounded-lg flex items-center justify-center">
+                    <FileCode size={15} className="text-purple-400" />
+                  </div>
+                  <h2 className="text-sm font-semibold text-white">Manual Report</h2>
+                </div>
+
+                {Object.keys(error?.payload?.metadata).length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    {Object.entries(error?.payload?.metadata).map(([key, value]) => {
+
+                      // skip null/undefined
+                      if (value === null || value === undefined || value === '') return null;
+
+                      return (
+                        <div
+                          key={key}
+                          className={`bg-slate-900/60 border border-slate-700/40 rounded-xl p-4 ${typeof value === 'string' && value.length > 80 ? 'col-span-2' : ''
+                            }`}
+                        >
+                          {/* Label */}
+                          <p className="text-[10px] text-slate-500 uppercase mb-1">
+                            {key.replace(/_/g, ' ')}
+                          </p>
+
+                          {/* Value */}
+                          <p className="text-sm text-white break-words">
+                            {String(value)}
+                          </p>
+                        </div>
+                      );
+                    })}
+
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-slate-400 text-sm">No metadata available</p>
+                  </div>
+                )}
+
               </Card>
             )}
           </div>

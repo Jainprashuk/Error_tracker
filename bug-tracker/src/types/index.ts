@@ -45,6 +45,7 @@ export interface ErrorDetail extends Error {
   projectId: string;
   screenshot_url?: string;
   performance?: Record<string, any>;
+  metadata?: Record<string, any>;
 }
 
 export interface User {

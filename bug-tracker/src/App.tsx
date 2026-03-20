@@ -5,6 +5,7 @@ import { useAuthStore } from './store/auth';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { DocsPage } from './pages/DocsPage';
+import { DashboardLayout } from './components/DashboardLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectPage } from './pages/ProjectPage';
 import { ErrorDetailPage } from './pages/ErrorDetailPage';
@@ -62,31 +63,12 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/docs" element={<DocsPage />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/project/:id"
-            element={
-              <ProtectedRoute>
-                <ProjectPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/error/:fingerprint"
-            element={
-              <ProtectedRoute>
-                <ErrorDetailPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/project/:id" element={<ProjectPage />} />
+            <Route path="/error/:fingerprint" element={<ErrorDetailPage />} />
+            <Route path="/docs" element={<DocsPage isLoggedIn={true} />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

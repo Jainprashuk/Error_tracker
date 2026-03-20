@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter } from 'lucide-react';
+import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton } from '../components/ui';
 import type { Error as ErrorType, Project } from '../types';
@@ -109,6 +109,7 @@ export const ProjectPage: React.FC = () => {
   const [errors, setErrors] = useState<ErrorType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [revealedKey, setRevealedKey] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
 
   useEffect(() => { loadProjectData(); }, [id]);
@@ -214,7 +215,7 @@ export const ProjectPage: React.FC = () => {
       {/* Ambient glow */}
       <div className="fixed top-20 right-10 w-80 h-80 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
 
-      <main className="flex-1 ml-64 overflow-auto">
+      <main className="overflow-auto flex-1 ">
         <div className="p-8 space-y-7">
 
           {/* ── Header ── */}
@@ -286,9 +287,16 @@ export const ProjectPage: React.FC = () => {
                 <Badge variant="success" className="ml-auto">Active</Badge>
               </div>
               <div className="px-5 py-4 flex items-center gap-3">
-                <code className="flex-1 bg-slate-900/60 border border-slate-700/40 rounded-xl px-4 py-2.5 text-emerald-400 font-mono text-xs break-all">
-                  {project.apiKey}
+                <code className="flex-1 bg-slate-900/60 border border-slate-700/40 rounded-xl px-4 py-2.5 text-emerald-400 font-mono text-xs break-all tracking-widest">
+                  {revealedKey ? project.apiKey : '•'.repeat(36)}
                 </code>
+                <button
+                  onClick={() => setRevealedKey((r) => !r)}
+                  title={revealedKey ? 'Hide API key' : 'Reveal API key'}
+                  className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-slate-700/60 border border-slate-600/50 text-slate-400 hover:bg-slate-600/70 hover:text-white transition-all duration-150 active:scale-95"
+                >
+                  {revealedKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
                 <Button
                   id="copy-api-key-btn"
                   variant="secondary"

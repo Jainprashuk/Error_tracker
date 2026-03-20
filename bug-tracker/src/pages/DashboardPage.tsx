@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, AlertTriangle, LayoutGrid, Clock, TrendingUp,
-  ArrowRight, Activity, Zap, RefreshCw,
+  ArrowRight, Activity, Zap, RefreshCw, Eye, EyeOff,
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Skeleton, StatCard, EmptyState, Badge } from '../components/ui';
@@ -46,6 +46,7 @@ const ProjectCard: React.FC<{
   onClick: () => void;
 }> = ({ project, onClick }) => {
   const [copied, setCopied] = useState(false);
+  const [revealed, setRevealed] = useState(false);
 
   const handleCopyKey = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -96,7 +97,8 @@ const ProjectCard: React.FC<{
           <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Total Errors</p>
           <p className={`text-xl font-bold ${project.errorCount === 0 ? 'text-emerald-400' :
             project.errorCount > 50 ? 'text-red-400' :
-              project.errorCount > 10 ? 'text-amber-400' : 'text-blue-400'
+              project.errorCount >
+                10 ? 'text-amber-400' : 'text-blue-400'
             }`}>
             {project.errorCount}
           </p>
@@ -112,10 +114,17 @@ const ProjectCard: React.FC<{
       </div>
 
       {/* API Key row */}
-      <div className="flex items-center gap-2">
-        <code className="flex-1 text-[10px] font-mono text-slate-500 bg-slate-900/60 border border-slate-700/40 rounded-lg px-3 py-2 truncate">
-          {project.apiKey}
+      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <code className="flex-1 text-[10px] font-mono text-slate-500 bg-slate-900/60 border border-slate-700/40 rounded-lg px-3 py-2 truncate tracking-widest">
+          {revealed ? project.apiKey : '•'.repeat(28)}
         </code>
+        <button
+          onClick={(e) => { e.stopPropagation(); setRevealed((r) => !r); }}
+          title={revealed ? 'Hide API key' : 'Reveal API key'}
+          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-slate-700/60 border border-slate-600/50 text-slate-400 hover:bg-slate-600/70 hover:text-white transition-all duration-150 active:scale-95"
+        >
+          {revealed ? <EyeOff size={12} /> : <Eye size={12} />}
+        </button>
         <button
           onClick={handleCopyKey}
           className="flex-shrink-0 px-3 py-2 text-[10px] font-semibold rounded-lg bg-slate-700/60 border border-slate-600/50 text-slate-300 hover:bg-slate-600/70 hover:text-white transition-all duration-150 active:scale-95"
@@ -199,7 +208,14 @@ export const DashboardPage: React.FC = () => {
                   const lastSeen = new Date(err.last_seen || err.lastSeen);
                   if (lastSeen >= last24HoursAgo) totalErrorsLast24Hours++;
                 });
-                return { ...project, errorCount: errors.length };
+                // Derive lastSeen from the most recently seen error
+                const latestSeen = errors.reduce((latest: string | null, err: any) => {
+                  const ts = err.last_seen || err.lastSeen;
+                  if (!ts) return latest;
+                  if (!latest) return ts;
+                  return new Date(ts) > new Date(latest) ? ts : latest;
+                }, null);
+                return { ...project, errorCount: errors.length, lastSeen: latestSeen };
               }
             } catch { /* silently ignore per-project error */ }
             return project;
@@ -258,7 +274,7 @@ export const DashboardPage: React.FC = () => {
       <div className="fixed top-0 right-0 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-0 left-64 w-96 h-96 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
 
-      <main className="flex-1 ml-64 overflow-auto">
+      <main className="flex-1 h-screen overflow-y-auto">
         <div className="p-8 space-y-8">
 
           {/* ── Header ── */}
@@ -342,7 +358,7 @@ export const DashboardPage: React.FC = () => {
                     </div>
                     <div>
                       <h2 className="text-sm font-semibold text-white">Error Trends</h2>
-                      <p className="text-xs text-slate-500">Last 7 days &mdash; based on last_seen timestamps</p>
+                      <p className="text-xs text-slate-500">Project Trends</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

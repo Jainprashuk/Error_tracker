@@ -122,31 +122,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   <p className="text-[10px] text-slate-600 mt-2">⚠ Store this key securely — it won't be shown again.</p>
                 </div>
 
-                {/* Code snippet */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Terminal size={12} className="text-slate-500" />
-                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest">SDK Setup</p>
-                  </div>
-                  <div className="bg-slate-950/70 border border-slate-700/40 rounded-xl overflow-hidden">
-                    <div className="px-4 py-2 border-b border-slate-700/40 flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
-                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
-                      <span className="text-slate-600 text-[10px] font-mono ml-2">index.ts</span>
-                    </div>
-                    <pre className="p-4 text-slate-300 font-mono text-xs overflow-x-auto leading-relaxed">
-                      {`import { initBugTracker } from 'bug-tracker-sdk';
 
-initBugTracker({
-  project: "${projectName}",
-  collectorUrl: "https://bugtracker.jainprashuk.in",
-  apiKey: "${apiKey}"
-});`}
-                    </pre>
-                  </div>
-                  <p className="text-[10px] text-slate-600 mt-2 font-mono">npm install bug-tracker-sdk</p>
-                </div>
 
                 <Button id="modal-done-btn" variant="primary" onClick={handleClose} className="w-full">
                   Done — Go to Dashboard
