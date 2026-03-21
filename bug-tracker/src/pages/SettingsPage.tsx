@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Sidebar } from "../components/Sidebar";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Settings, Link as LinkIcon, Save, RefreshCw, Layers } from "lucide-react";
+import toast from "react-hot-toast";
+import { Card, Button, Input, Badge } from "../components/ui";
 
 export const SettingsPage: React.FC = () => {
   const API = import.meta.env.VITE_API_BASE_URL;
@@ -90,11 +92,14 @@ export const SettingsPage: React.FC = () => {
 
       if (data.status === "success") {
         setStatus("success");
+        toast.success("Connection test successful");
       } else {
         setStatus("error");
+        toast.error("Connection test failed");
       }
     } catch {
       setStatus("error");
+      toast.error("Failed to test connection");
     } finally {
       setLoading(false);
     }
@@ -103,7 +108,7 @@ export const SettingsPage: React.FC = () => {
   // 🔥 Save integration
   const handleSave = async () => {
     if (!selectedProjectId) {
-      alert("Select project first");
+      toast.error("Select project first");
       return;
     }
 
@@ -130,128 +135,155 @@ export const SettingsPage: React.FC = () => {
 
       if (!res.ok) throw new Error(data.detail || "Failed");
 
-      alert("✅ Integration saved");
+      toast.success("Integration saved successfully");
     } catch (err: any) {
-      alert("❌ " + err.message);
+      toast.error(err.message);
     }
   };
 
   return (
-    <div className="flex h-screen bg-[#0f172a]">
+    <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 overflow-hidden">
       <Sidebar />
 
-      <main className="flex-1 flex items-center justify-center p-10">
-        <div className="w-full max-w-xl bg-[#111827] border border-[#1f2937] rounded-2xl p-8 shadow-xl">
+      {/* Ambient glow blobs */}
+      <div className="fixed top-0 right-0 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed bottom-0 left-0 md:left-64 w-96 h-96 bg-purple-600/5 rounded-full blur-3xl pointer-events-none" />
 
-          {/* 🔽 Project Selector */}
-          <div className="mb-6">
-            <label className="text-sm text-gray-400 mb-2 block">
-              Select Project
-            </label>
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-4 md:p-8 space-y-8 animate-fade-in-up max-w-5xl mx-auto">
 
-            <select
-              value={selectedProjectId}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg bg-[#020617] border border-[#1f2937] text-white focus:ring-2 focus:ring-blue-500"
-            >
-              {projects.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 🔥 Header */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-white">
-              🔗 OpenProject Integration
-            </h2>
-
-            {status === "success" && (
-              <span className="text-xs px-3 py-1 rounded-full bg-green-500/20 text-green-400">
-                Connected
-              </span>
-            )}
-
-            {status === "error" && (
-              <span className="text-xs px-3 py-1 rounded-full bg-red-500/20 text-red-400">
-                Failed
-              </span>
-            )}
-          </div>
-
-          {/* 🔥 Form */}
-          <div className="space-y-5">
-
-            {/* Base URL */}
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-slate-800/60 border border-slate-700/50 rounded-xl flex items-center justify-center">
+              <Settings size={20} className="text-slate-300" />
+            </div>
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">
-                Base URL
-              </label>
-              <input
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="https://company.openproject.com"
-                className="w-full px-4 py-2 rounded-lg bg-[#020617] border border-[#1f2937] text-white focus:ring-2 focus:ring-blue-500 outline-none"
-              />
+              <h1 className="text-2xl font-bold gradient-text leading-none mb-1.5">Settings</h1>
+              <p className="text-slate-400 text-sm">Configure integrations and sync rules for your projects</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-8 space-y-6">
+              <Card>
+                <div className="flex items-center gap-2 mb-6 border-b border-slate-700/40 pb-4">
+                  <Layers size={18} className="text-blue-400" />
+                  <h2 className="text-lg font-semibold text-white">Project Scope</h2>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400">Select Project context</label>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full bg-slate-900/40 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all appearance-none cursor-pointer"
+                  >
+                    {projects.map((p) => (
+                      <option key={p._id} value={p._id} className="bg-slate-800 text-white">
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </Card>
+
+              <Card glow="blue">
+                <div className="flex items-center justify-between border-b border-slate-700/40 pb-4 mb-6">
+                  <div className="flex items-center gap-2">
+                    <LinkIcon size={18} className="text-blue-400" />
+                    <h2 className="text-lg font-semibold text-white">OpenProject Integration</h2>
+                  </div>
+                  {status === "success" && <Badge variant="success" dot>Connected</Badge>}
+                  {status === "error" && <Badge variant="danger" dot>Failed</Badge>}
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-sm font-medium text-slate-400 mb-1.5 block">Base URL</label>
+                    <Input
+                      value={baseUrl}
+                      onChange={(e) => setBaseUrl(e.target.value)}
+                      placeholder="https://company.openproject.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-slate-400 mb-1.5 block">API Key</label>
+                    <div className="relative">
+                      <Input
+                        type={showApiKey ? "text" : "password"}
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="••••••••••••••"
+                        className="pr-10 font-mono text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-white transition-colors"
+                      >
+                        {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-slate-400 mb-1.5 block">OpenProject Project ID</label>
+                    <Input
+                      type="number"
+                      value={projectId}
+                      onChange={(e) => setProjectId(e.target.value)}
+                      placeholder="e.g. 1"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-4 pt-4 border-t border-slate-700/40">
+                    <Button
+                      variant="secondary"
+                      onClick={handleTest}
+                      disabled={loading}
+                      className="flex-1"
+                    >
+                      {loading ? (
+                        <RefreshCw className="animate-spin text-slate-400" size={16} />
+                      ) : (
+                        <RefreshCw size={16} />
+                      )}
+                      {loading ? "Testing..." : "Test Connection"}
+                    </Button>
+
+                    <Button
+                      variant="primary"
+                      onClick={handleSave}
+                      className="flex-1"
+                    >
+                      <Save size={16} />
+                      Save Integration
+                    </Button>
+                  </div>
+                </div>
+              </Card>
             </div>
 
-            {/* API Key */}
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">
-                API Key
-              </label>
-              <div className="relative">
-                <input
-                  type={showApiKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="w-full px-4 py-2 pr-10 rounded-lg bg-[#020617] border border-[#1f2937] text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-3 top-2.5 text-gray-400"
-                >
-                  {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+            {/* Sidebar info section */}
+            <div className="lg:col-span-4 space-y-6">
+              <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6">
+                <h3 className="text-sm font-bold text-white mb-3">About Integrations</h3>
+                <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                  Link your error logs directly to your project management software. Once configured, you can automatically or manually generate engineering tasks straight from the Bug Tracker dashboard.
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2 bg-slate-900/50 rounded p-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5" />
+                    <p className="text-xs text-slate-300 flex-1">Two-way synchronization allows closing errors when tasks resolve.</p>
+                  </div>
+                  <div className="flex items-start gap-2 bg-slate-900/50 rounded p-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5" />
+                    <p className="text-xs text-slate-300 flex-1">Ticket fields are pre-populated with stack-traces and metadata.</p>
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* Project ID */}
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">
-                OpenProject Project ID
-              </label>
-              <input
-                type="number"
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-[#020617] border border-[#1f2937] text-white focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-3 pt-2">
-
-              <button
-                onClick={handleTest}
-                disabled={loading}
-                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg transition"
-              >
-                {loading ? "Testing..." : "Test Connection"}
-              </button>
-
-              <button
-                onClick={handleSave}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition"
-              >
-                Save Integration
-              </button>
-
-            </div>
-
           </div>
         </div>
       </main>

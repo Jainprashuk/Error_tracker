@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, MoreVertical, ExternalLink, X } from 'lucide-react';
+import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton } from '../components/ui';
 import type { Error as ErrorType, Project } from '../types';
+import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -55,56 +56,63 @@ interface IssueRowProps {
 const IssueRow: React.FC<IssueRowProps> = ({
   error, index, onClick, refetchData,
 }) => {
-    const [popoverOpen, setPopoverOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [ticketResult, setTicketResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const isTicketGenerated = error.is_ticket_generated === true;
   const ticketUrl = error.ticket_url;
-  const [menuOpen, setMenuOpen] = useState(false);
-    const eventType = (error as any).event_type || error.errorType;
-    const { label, variant } = getEventTypeMeta(eventType);
-    const file = error.location?.file ?? null;
-    const line = error.location?.line ?? null;
 
-    const handleCreateTicket = async (error: any, e?: React.MouseEvent) => {
-      if (e) e.stopPropagation();
-      if (isTicketGenerated) {
-        setPopoverOpen(true);
-        setTicketResult({ alreadyGenerated: true });
-        return;
+  const eventType = (error as any).event_type || error.errorType;
+  const { label, variant } = getEventTypeMeta(eventType);
+  const file = error.location?.file ?? null;
+  const line = error.location?.line ?? null;
+
+  const handleCreateTicket = async (errItem: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (isTicketGenerated) {
+      toast.error('Ticket for this fingerprint is already generated.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const sessionStr = localStorage.getItem('session');
+      const session = sessionStr ? JSON.parse(sessionStr) : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.token) {
+        headers['Authorization'] = `Bearer ${session.token}`;
       }
-      setPopoverOpen(true);
-      setLoading(true);
-      setTicketResult(null);
+
+      const res = await fetch(`${API_BASE_URL}/tickets/openproject/${errItem.fingerprint}`, {
+        method: 'POST',
+        headers,
+      });
+
+      let data;
       try {
-        const res = await fetch(`${API_BASE_URL}/tickets/openproject/${error.fingerprint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        let data;
-        try {
-          data = await res.json();
-        } catch (jsonErr) {
-          data = {};
-        }
-        if (!res.ok) {
-          // Prefer error message from API, fallback to status text
-          setTicketResult({
-            error: data?.error || data?.message || res.statusText || 'Failed to create ticket',
-          });
-        } else {
-          setTicketResult(data);
-          // Refetch data if ticket creation was successful
-          if (!data.error && typeof refetchData === 'function') {
-            refetchData();
-          }
-        }
-      } catch (err: any) {
-        setTicketResult({ error: err?.message || 'Failed to create ticket' });
-      } finally {
-        setLoading(false);
+        data = await res.json();
+      } catch (jsonErr) {
+        data = {};
       }
-    };
+
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || res.statusText || 'Failed to create ticket');
+      }
+
+      toast.success(
+        <div>
+          Ticket Created! <br /> ID: {data.id || data.ticket_id || 'N/A'}
+        </div>
+      );
+
+      if (typeof refetchData === 'function') {
+        refetchData();
+      }
+    } catch (err: any) {
+      console.error('Failed to create ticket:', err);
+      toast.error(err?.message || 'Failed to create ticket');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <tr
@@ -151,74 +159,43 @@ const IssueRow: React.FC<IssueRowProps> = ({
         <span className="text-slate-400 text-xs">{formatDate((error as any).last_seen || error.lastSeen)}</span>
       </td>
 
-      {/* Ticket menu */}
-      <td className="px-6 py-4 text-right relative">
-        <div className="flex justify-end">
-          <button
-            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-800/60 transition-all duration-150 focus:outline-none"
-            onClick={e => { e.stopPropagation(); setMenuOpen(m => !m); }}
-            aria-label="Ticket actions"
-          >
-            <MoreVertical size={18} />
-          </button>
-        </div>
-        {menuOpen && (
-          <div className="absolute right-0 mt-2 w-44 bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-50 py-2 animate-fade-in-up flex flex-col">
-            {!isTicketGenerated && (
-              <button
-                className="flex items-center gap-2 px-4 py-2 text-sm text-blue-400 hover:bg-slate-800/60 hover:text-blue-200 transition-all duration-150"
-                onClick={e => { handleCreateTicket(error, e); setMenuOpen(false); }}
-              >
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-ticket" viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v1a2 2 0 0 0 0 4v1a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-1a2 2 0 0 0 0-4V9Z"/><path d="M13 5v2"/><path d="M13 17v2"/></svg>
-                Generate Ticket
-              </button>
-            )}
-            {isTicketGenerated && ticketUrl && (
-              <a
-                className="flex items-center gap-2 px-4 py-2 text-sm text-green-400 hover:bg-slate-800/60 hover:text-green-200 transition-all duration-150"
-                href={ticketUrl.startsWith('http') ? ticketUrl : `https://bugtrace.openproject.com${ticketUrl}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setMenuOpen(false)}
-              >
-                <ExternalLink size={16} />
-                View Ticket
-              </a>
-            )}
-          </div>
-        )}
-        {/* Popover for ticket creation feedback */}
-        {popoverOpen && (
-          <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 p-5 animate-fade-in-up flex flex-col items-center gap-2">
-            {loading ? (
-              <div className="flex items-center gap-2 text-slate-400 text-sm"><Clock size={16} /> Generating ticket...</div>
-            ) : ticketResult && ticketResult.alreadyGenerated ? (
-              <div className="text-blue-400 text-base font-semibold flex flex-col items-center">
-                <Check size={22} className="mb-1" />
-                Ticket for this fingerprint is already generated.
-              </div>
-            ) : ticketResult && ticketResult.error ? (
-              <div className="text-red-400 text-base font-semibold flex flex-col items-center">
-                <AlertTriangle size={20} className="mb-1" />
-                {ticketResult.error}
-              </div>
-            ) : ticketResult ? (
-              <div className="flex flex-col items-center">
-                <div className="text-green-400 font-semibold mb-1 text-base flex items-center gap-1"><Check size={18} /> Ticket Created!</div>
-                <div className="text-xs text-slate-300 break-all mb-2">ID: {ticketResult.id || ticketResult.ticket_id || 'N/A'}</div>
-                {ticketResult.url && (
-                  <a href={ticketResult.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline text-xs">View Ticket</a>
-                )}
-              </div>
-            ) : null}
-            <button
-              className="mt-2 px-4 py-1.5 rounded bg-slate-700 text-slate-200 text-xs hover:bg-slate-600 w-full border border-slate-600 transition-all duration-150"
-              onClick={(e) => { e.stopPropagation(); setPopoverOpen(false); }}
+      {/* Ticket action */}
+      <td className="px-6 py-4 text-right">
+        <div className="flex justify-end items-center">
+          {isTicketGenerated && ticketUrl ? (
+            <a
+              className="group/link inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-green-400 bg-green-500/10 hover:bg-green-500/20 rounded-lg border border-green-500/20 hover:border-green-500/40 transition-all duration-200"
+              href={ticketUrl.startsWith('http') ? ticketUrl : `https://bugtrace.openproject.com${ticketUrl}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
             >
-              Close
+              View
+              <ExternalLink size={12} className="group-hover/link:translate-x-0.5 transition-transform" />
+            </a>
+          ) : (
+            <button
+              disabled={loading}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${loading
+                ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                : 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/20 hover:border-blue-500/40'
+                }`}
+              onClick={(e) => handleCreateTicket(error, e)}
+            >
+              {loading ? (
+                <>
+                  <Clock size={12} className="animate-spin text-slate-500" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-ticket" viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v1a2 2 0 0 0 0 4v1a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-1a2 2 0 0 0 0-4V9Z" /><path d="M13 5v2" /><path d="M13 17v2" /></svg>
+                  Generate
+                </>
+              )}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -278,6 +255,7 @@ export const ProjectPage: React.FC = () => {
       setErrors(projectErrors);
     } catch (err) {
       console.error('Failed to load project data:', err);
+      toast.error('Failed to load project data');
     } finally {
       setIsLoading(false);
     }

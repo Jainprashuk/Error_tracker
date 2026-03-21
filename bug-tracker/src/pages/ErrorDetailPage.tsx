@@ -7,6 +7,7 @@ import {
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton, Tabs } from '../components/ui';
 import type { ErrorDetail } from '../types';
+import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -139,6 +140,7 @@ export const ErrorDetailPage: React.FC = () => {
       console.log(error);
     } catch (err) {
       console.error('Failed to load error detail:', err);
+      toast.error('Failed to load error details');
     } finally {
       setIsLoading(false);
     }

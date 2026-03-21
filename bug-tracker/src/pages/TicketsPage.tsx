@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Skeleton, Badge } from '../components/ui';
 import { ExternalLink } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -37,8 +38,10 @@ export const TicketsPage: React.FC = () => {
           allTickets = allTickets.concat(projectTickets.map((t: any) => ({ ...t, projectName: project.name })));
         }
       }
-  setTickets(allTickets.filter(t => t.ticket_url));
+      setTickets(allTickets.filter(t => t.ticket_url));
     } catch (err) {
+      console.error('Failed to fetch tickets:', err);
+      toast.error('Failed to load tickets');
       setTickets([]);
     } finally {
       setIsLoading(false);

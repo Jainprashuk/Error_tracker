@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input } from '../components/ui';
 import { useAuthStore } from '../store/auth';
+import toast from 'react-hot-toast';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export const LoginPage: React.FC = () => {
 
     try {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const payload = isLogin 
+      const payload = isLogin
         ? { email: formData.email, password: formData.password }
         : { email: formData.email, password: formData.password, name: formData.name };
 
@@ -75,10 +76,13 @@ export const LoginPage: React.FC = () => {
         email: data.email,
       });
 
+      toast.success(isLogin ? "Login successful" : "Account created successfully");
       navigate('/dashboard');
     } catch (err) {
       console.error('Authentication error:', err);
-      setError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
+      const msg = err instanceof Error ? err.message : 'Authentication failed. Please try again.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -187,7 +191,7 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
-         
+
         </div>
 
         {/* Footer */}
