@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, Zap, Bug, LayoutDashboard } from 'lucide-react';
+import { LogOut, Zap, Bug, LayoutDashboard, Ticket, Settings } from 'lucide-react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { DOCS_SECTIONS } from '../types/docsSections';
@@ -23,6 +23,8 @@ export const Sidebar: React.FC = () => {
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+    { label: 'Tickets', icon: Ticket, href: '/tickets' },
+    { label: 'Settings', icon: Settings, href: '/settings' },
     {
       label: 'Docs',
       icon: Zap,

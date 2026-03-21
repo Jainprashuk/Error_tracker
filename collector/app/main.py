@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes.error_routes import router as error_router
 from app.routes.project_routes import router as project_router
 from app.routes.auth_routes import router as auth_router
+from app.routes.ticket_routes import router as ticket_router
+from app.routes.integration_routes import router as integration_router
 
 
 # Initialize FastAPI application instance
@@ -28,6 +30,8 @@ app.add_middleware(
 app.include_router(error_router)
 app.include_router(project_router)
 app.include_router(auth_router)
+app.include_router(ticket_router)
+app.include_router(integration_router)
 
 @app.get("/")
 def root():

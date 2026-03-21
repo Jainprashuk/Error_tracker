@@ -7,8 +7,6 @@ from app.utils.s3upload import upload_screenshot
 
 def ParseError(payload, project_id):
 
-    print("📦 PAYLOAD IN ParseError 👉", payload)
-
     endpoint = None
     message = None
     stack = None
@@ -39,7 +37,8 @@ def ParseError(payload, project_id):
         endpoint=endpoint,
         message=message,
         stack=stack,
-        event_type=event_type
+        event_type=event_type,
+        project_id=str(project_id)
     )
 
     existing = errors_collection.find_one({
@@ -81,5 +80,6 @@ def ParseError(payload, project_id):
             "screenshot_url": screenshot_url,
             "occurrences": 1,
             "first_seen": datetime.utcnow(),
-            "last_seen": datetime.utcnow()
+            "last_seen": datetime.utcnow(),
+            "is_ticket_generated": False
         })

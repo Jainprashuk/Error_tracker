@@ -9,6 +9,8 @@ import { DashboardLayout } from './components/DashboardLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectPage } from './pages/ProjectPage';
 import { ErrorDetailPage } from './pages/ErrorDetailPage';
+import { TicketsPage } from './pages/TicketsPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 const queryClient = new QueryClient();
 
@@ -68,6 +70,8 @@ export default function App() {
             <Route path="/project/:id" element={<ProjectPage />} />
             <Route path="/error/:fingerprint" element={<ErrorDetailPage />} />
             <Route path="/docs" element={<DocsPage  />} />
+            <Route path="/tickets" element={<TicketsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

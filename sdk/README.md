@@ -10,6 +10,7 @@ A lightweight JavaScript SDK for automatically tracking frontend errors, API fai
 - ✅ **Smart Fingerprinting** - Groups similar errors automatically
 - ✅ **Lightweight** - Minimal overhead on your application
 - ✅ **Image Capture** - Capture Image At the time Of bug
+- ✅ **Ticket Integration** - Create OpenProject Ticket From Dashboard In Your Openproject
 ---
 
 ## Installation
@@ -237,9 +238,37 @@ initBugTracker({
 
 
 
+
+## 🛠️ OpenProject Integration
+
+You can connect your BugTracker project to your own OpenProject instance for seamless ticket creation directly from the dashboard.
+
+### How to Set Up OpenProject Integration
+
+1. **Go to the Settings Page**
+  - In the BugTracker dashboard, open your project and navigate to the **Settings** tab.
+
+2. **Select Your Project**
+  - Use the project selector to choose the project you want to integrate.
+
+3. **Fill in OpenProject Details**
+  - In the **OpenProject Integration** section, enter:
+    - **OpenProject Base URL** (e.g., `https://yourcompany.openproject.com`)
+    - **API Key** (generate from your OpenProject user profile)
+    - **Project ID** (numeric ID of your OpenProject project)
+
+4. **Save Integration**
+  - Click **Update** to save your integration settings.
+
+5. **Create Tickets from Errors**
+  - Now, when viewing errors in the dashboard, you can generate OpenProject tickets with one click. The ticket will be created in your OpenProject project with all relevant error details.
+
+> **Note:** Your API Key is stored securely and only used for ticket creation.
+
+---
 ## Integration with BugTracker Dashboard
 
-Once errors are reported to your BugTracker collector, they appear in the dashboard at:
+Once errors are reported to your BugTracker collector, they appear in the dashboard at: https://bugtrace.jainprashuk.in/
 
 - **View all errors** - See every error across your application
 - **Group by type** - Similar errors are automatically grouped
