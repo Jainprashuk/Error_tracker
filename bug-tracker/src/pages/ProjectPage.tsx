@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton } from '../components/ui';
 import type { Error as ErrorType, Project } from '../types';
+import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -45,13 +46,73 @@ const formatDate = (dateString: string | undefined) => {
 };
 
 // ─── Issue row component ────────────────────────────────────────
-const IssueRow: React.FC<{ error: any; index: number; onClick: () => void }> = ({
-  error, index, onClick,
+interface IssueRowProps {
+  error: any;
+  index: number;
+  onClick: () => void;
+  refetchData?: () => void;
+}
+
+const IssueRow: React.FC<IssueRowProps> = ({
+  error, index, onClick, refetchData,
 }) => {
+  const [loading, setLoading] = useState(false);
+  const isTicketGenerated = error.is_ticket_generated === true;
+  const ticketUrl = error.ticket_url;
+
   const eventType = (error as any).event_type || error.errorType;
   const { label, variant } = getEventTypeMeta(eventType);
   const file = error.location?.file ?? null;
   const line = error.location?.line ?? null;
+
+  const handleCreateTicket = async (errItem: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (isTicketGenerated) {
+      toast.error('Ticket for this fingerprint is already generated.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const sessionStr = localStorage.getItem('session');
+      const session = sessionStr ? JSON.parse(sessionStr) : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.token) {
+        headers['Authorization'] = `Bearer ${session.token}`;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/tickets/openproject/${errItem.fingerprint}`, {
+        method: 'POST',
+        headers,
+      });
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        data = {};
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || res.statusText || 'Failed to create ticket');
+      }
+
+      toast.success(
+        <div>
+          Ticket Created! <br /> ID: {data.id || data.ticket_id || 'N/A'}
+        </div>
+      );
+
+      if (typeof refetchData === 'function') {
+        refetchData();
+      }
+    } catch (err: any) {
+      console.error('Failed to create ticket:', err);
+      toast.error(err?.message || 'Failed to create ticket');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <tr
@@ -97,11 +158,51 @@ const IssueRow: React.FC<{ error: any; index: number; onClick: () => void }> = (
       <td className="px-6 py-4 text-right">
         <span className="text-slate-400 text-xs">{formatDate((error as any).last_seen || error.lastSeen)}</span>
       </td>
+
+      {/* Ticket action */}
+      <td className="px-6 py-4 text-right">
+        <div className="flex justify-end items-center">
+          {isTicketGenerated && ticketUrl ? (
+            <a
+              className="group/link inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-green-400 bg-green-500/10 hover:bg-green-500/20 rounded-lg border border-green-500/20 hover:border-green-500/40 transition-all duration-200"
+              href={ticketUrl.startsWith('http') ? ticketUrl : `https://bugtrace.openproject.com${ticketUrl}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              View
+              <ExternalLink size={12} className="group-hover/link:translate-x-0.5 transition-transform" />
+            </a>
+          ) : (
+            <button
+              disabled={loading}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${loading
+                ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                : 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/20 hover:border-blue-500/40'
+                }`}
+              onClick={(e) => handleCreateTicket(error, e)}
+            >
+              {loading ? (
+                <>
+                  <Clock size={12} className="animate-spin text-slate-500" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-ticket" viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v1a2 2 0 0 0 0 4v1a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-1a2 2 0 0 0 0-4V9Z" /><path d="M13 5v2" /><path d="M13 17v2" /></svg>
+                  Generate
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </td>
     </tr>
   );
 };
 
-// ─── Main page ───────────────────────────────────────────────────
+
+// Existing ProjectPage export
 export const ProjectPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -111,6 +212,7 @@ export const ProjectPage: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState(false);
   const [revealedKey, setRevealedKey] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
 
   useEffect(() => { loadProjectData(); }, [id]);
 
@@ -153,6 +255,7 @@ export const ProjectPage: React.FC = () => {
       setErrors(projectErrors);
     } catch (err) {
       console.error('Failed to load project data:', err);
+      toast.error('Failed to load project data');
     } finally {
       setIsLoading(false);
     }
@@ -183,9 +286,9 @@ export const ProjectPage: React.FC = () => {
     return (
       <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8 space-y-5">
+        <div className="flex-1 md:ml-64 p-4 pt-20 md:p-8 space-y-5">
           <Skeleton className="h-12 w-1/3" />
-          <div className="grid grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28" />)}
           </div>
           <Skeleton className="h-96" />
@@ -198,7 +301,7 @@ export const ProjectPage: React.FC = () => {
     return (
       <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className="flex-1 md:ml-64 p-4 pt-20 md:p-8">
           <Card className="text-center py-16">
             <p className="text-slate-400 mb-6">Project not found</p>
             <Button onClick={() => navigate('/dashboard')}>← Back to Dashboard</Button>
@@ -215,8 +318,8 @@ export const ProjectPage: React.FC = () => {
       {/* Ambient glow */}
       <div className="fixed top-20 right-10 w-80 h-80 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
 
-      <main className="overflow-auto flex-1 ">
-        <div className="p-8 space-y-7">
+      <main className="overflow-auto flex-1 md:ml-64">
+        <div className="p-4 pt-20 md:p-8 space-y-7">
 
           {/* ── Header ── */}
           <div className="flex items-center gap-4 animate-fade-in-up">
@@ -322,24 +425,36 @@ export const ProjectPage: React.FC = () => {
 
               {/* Filter by type */}
               {uniqueTypes.length > 1 && (
-                <div className="flex items-center gap-2">
-                  <Filter size={13} className="text-slate-500" />
-                  <div className="flex items-center gap-1">
-                    {uniqueTypes.map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => setFilterType(type)}
-                        className={[
-                          'px-3 py-1 rounded-lg text-xs font-medium transition-all duration-150',
-                          filterType === type
-                            ? 'bg-blue-600/20 border border-blue-500/40 text-blue-300'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/40',
-                        ].join(' ')}
-                      >
-                        {type === 'all' ? 'All' : getEventTypeMeta(type).label}
-                      </button>
-                    ))}
-                  </div>
+                <div className="relative flex items-center gap-2">
+                  <button
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-all duration-150"
+                    onClick={() => setFilterPopoverOpen((v) => !v)}
+                  >
+                    <Filter size={13} className="text-slate-500" />
+                    {filterType === 'all' ? 'All Types' : getEventTypeMeta(filterType).label}
+                  </button>
+                  {filterPopoverOpen && (
+                    <div className="absolute right-0 mt-2 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-xl py-2 min-w-[180px] max-h-72 overflow-y-auto animate-fade-in-up">
+                      <div className="flex justify-between items-center px-4 pb-2 border-b border-slate-700">
+                        <span className="text-xs text-slate-400 font-semibold">Filter by Type</span>
+                        <button onClick={() => setFilterPopoverOpen(false)} className="text-slate-500 hover:text-slate-300"><X size={16} /></button>
+                      </div>
+                      {uniqueTypes.map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => { setFilterType(type); setFilterPopoverOpen(false); }}
+                          className={[
+                            'w-full text-left px-4 py-2 text-xs font-medium',
+                            filterType === type
+                              ? 'bg-blue-600/20 text-blue-300'
+                              : 'text-slate-300 hover:bg-slate-800',
+                          ].join(' ')}
+                        >
+                          {type === 'all' ? 'All' : getEventTypeMeta(type).label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -365,6 +480,7 @@ export const ProjectPage: React.FC = () => {
                         <th className="px-6 py-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Issue</th>
                         <th className="px-6 py-3.5 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Count</th>
                         <th className="px-6 py-3.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Last Seen</th>
+                        <th className="px-6 py-3.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Ticket</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -374,6 +490,7 @@ export const ProjectPage: React.FC = () => {
                           error={error}
                           index={idx}
                           onClick={() => navigate(`/error/${error.fingerprint}`)}
+                          refetchData={loadProjectData}
                         />
                       ))}
                     </tbody>

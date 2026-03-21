@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { Skeleton } from '../components/ui';
+import toast from 'react-hot-toast';
 
 export const GitHubCallbackPage: React.FC = () => {
   const navigate = useNavigate();
@@ -14,7 +15,9 @@ export const GitHubCallbackPage: React.FC = () => {
     const state = searchParams.get('state');
 
     if (!code) {
-      setError('No authorization code received from GitHub');
+      const msg = 'No authorization code received from GitHub';
+      setError(msg);
+      toast.error(msg);
       setTimeout(() => navigate('/login'), 3000);
       return;
     }
@@ -52,11 +55,14 @@ export const GitHubCallbackPage: React.FC = () => {
           // Update auth store
           setUser(user);
 
+          toast.success("Successfully authenticated with GitHub");
           navigate('/dashboard');
         }
       } catch (err) {
         console.error('GitHub callback error:', err);
-        setError('Authentication failed. Please try again.');
+        const msg = 'Authentication failed. Please try again.';
+        setError(msg);
+        toast.error(msg);
         setTimeout(() => navigate('/login'), 3000);
       }
     };

@@ -49,7 +49,9 @@ def get_project_errors(project_id: str):
                 "occurrences": 1,
                 "first_seen": 1,
                 "last_seen": 1,
-                "location": 1   # 🔥 added
+                "location": 1,
+                "is_ticket_generated": 1  ,# <-- include ticket flag,
+                "ticket_url": 1  # <-- include ticket URL
             }
         )
     )

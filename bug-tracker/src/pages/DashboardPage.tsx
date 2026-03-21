@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/auth';
 import type { Project } from '../types';
 import { ResponsiveContainer } from 'recharts';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -229,6 +230,7 @@ export const DashboardPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to load projects:', err);
+      toast.error('Failed to load projects');
       setProjects([]);
     } finally {
       setIsLoading(false);
@@ -253,9 +255,11 @@ export const DashboardPage: React.FC = () => {
 
       const result = await response.json();
       await loadProjects();
+      toast.success('Project created successfully!');
       return { apiKey: result.api_key, projectId: result.project_id };
     } catch (err) {
       console.error('Failed to create project:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to create project');
       throw err;
     } finally {
       setIsCreating(false);
@@ -274,8 +278,8 @@ export const DashboardPage: React.FC = () => {
       <div className="fixed top-0 right-0 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-0 left-0 md:left-64 w-96 h-96 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
 
-      <main className="flex-1 h-screen overflow-y-auto">
-        <div className="p-3 md:p-8 space-y-6 md:space-y-8">
+      <main className="flex-1 h-screen overflow-y-auto md:ml-64">
+        <div className="p-4 pt-20 md:p-8 space-y-6 md:space-y-8">
 
           {/* ── Header ── */}
           <div className="flex items-start justify-between animate-fade-in-up">

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/auth';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
@@ -9,6 +10,8 @@ import { DashboardLayout } from './components/DashboardLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectPage } from './pages/ProjectPage';
 import { ErrorDetailPage } from './pages/ErrorDetailPage';
+import { TicketsPage } from './pages/TicketsPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 const queryClient = new QueryClient();
 
@@ -67,11 +70,23 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/project/:id" element={<ProjectPage />} />
             <Route path="/error/:fingerprint" element={<ErrorDetailPage />} />
-            <Route path="/docs" element={<DocsPage  />} />
+            <Route path="/docs" element={<DocsPage />} />
+            <Route path="/tickets" element={<TicketsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: '#1e293b',
+            color: '#fff',
+            border: '1px solid #334155',
+          },
+        }}
+      />
     </QueryClientProvider>
   );
 }

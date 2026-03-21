@@ -42,14 +42,16 @@ def generate_fingerprint(
     message: str,
     stack: str,
     event_type: str,
-    status: int = None
+    status: int = None,
+    project_id: str = None
 ):
     normalized_endpoint = normalize_endpoint(endpoint)
     normalized_message = normalize_message(message)
     top_frame = get_top_stack_frame(stack)
 
     status_part = str(status) if status else "no_status"
+    project_id_part = str(project_id) if project_id else "no_project"
 
-    base = f"{event_type}|{status_part}|{normalized_endpoint}|{normalized_message}|{top_frame}"
+    base = f"{event_type}|{status_part}|{normalized_endpoint}|{normalized_message}|{top_frame}|{project_id_part}"
 
     return hashlib.sha256(base.encode()).hexdigest()
