@@ -1,6 +1,6 @@
 {
   "name": "bug-tracker-sdk",
-  "version": "1.0.13",
+  "version": "1.0.17",
   "description": "Lightweight JavaScript SDK for error tracking, logging, and performance monitoring in web applications",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -24,14 +24,11 @@
   ],
   "author": "Prashuk Jain",
   "license": "MIT",
-  "homepage": "https://github.com/your-username/bug-tracker-sdk",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/bug-tracker-sdk.git"
+    "url": "https://github.com/Jainprashuk/Error_tracker.git"
   },
-  "bugs": {
-    "url": "https://github.com/your-username/bug-tracker-sdk/issues"
-  },
+  "homepage": "https://bugtrace.jainprashuk.in/",
   "exports": {
     ".": "./dist/index.js"
   },
