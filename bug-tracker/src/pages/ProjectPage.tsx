@@ -286,9 +286,9 @@ export const ProjectPage: React.FC = () => {
     return (
       <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8 space-y-5">
+        <div className="flex-1 md:ml-64 p-4 pt-20 md:p-8 space-y-5">
           <Skeleton className="h-12 w-1/3" />
-          <div className="grid grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28" />)}
           </div>
           <Skeleton className="h-96" />
@@ -301,7 +301,7 @@ export const ProjectPage: React.FC = () => {
     return (
       <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className="flex-1 md:ml-64 p-4 pt-20 md:p-8">
           <Card className="text-center py-16">
             <p className="text-slate-400 mb-6">Project not found</p>
             <Button onClick={() => navigate('/dashboard')}>← Back to Dashboard</Button>
@@ -318,8 +318,8 @@ export const ProjectPage: React.FC = () => {
       {/* Ambient glow */}
       <div className="fixed top-20 right-10 w-80 h-80 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
 
-      <main className="overflow-auto flex-1 ">
-        <div className="p-8 space-y-7">
+      <main className="overflow-auto flex-1 md:ml-64">
+        <div className="p-4 pt-20 md:p-8 space-y-7">
 
           {/* ── Header ── */}
           <div className="flex items-center gap-4 animate-fade-in-up">

@@ -149,8 +149,8 @@ export const SettingsPage: React.FC = () => {
       <div className="fixed top-0 right-0 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-0 left-0 md:left-64 w-96 h-96 bg-purple-600/5 rounded-full blur-3xl pointer-events-none" />
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-4 md:p-8 space-y-8 animate-fade-in-up max-w-5xl mx-auto">
+      <main className="flex-1 overflow-y-auto md:ml-64 w-full">
+        <div className="p-4 pt-20 md:p-8 space-y-8 animate-fade-in-up max-w-5xl mx-auto">
 
           {/* Header */}
           <div className="flex items-center gap-3 mb-2">

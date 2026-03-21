@@ -159,12 +159,12 @@ export const ErrorDetailPage: React.FC = () => {
     return (
       <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8 space-y-5">
+        <div className="flex-1 md:ml-64 p-4 pt-20 md:p-8 space-y-5">
           <Skeleton className="h-12 w-2/3" />
-          <div className="grid grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28" />)}
           </div>
-          <Skeleton className="h-10 w-80" />
+          <Skeleton className="h-10 w-80 max-w-full" />
           <Skeleton className="h-96" />
         </div>
       </div>
@@ -175,7 +175,7 @@ export const ErrorDetailPage: React.FC = () => {
     return (
       <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className="flex-1 md:ml-64 p-4 pt-20 md:p-8">
           <Card className="text-center py-16">
             <p className="text-slate-400 mb-6">Error not found</p>
             <Button onClick={() => navigate('/dashboard')}>← Back to Dashboard</Button>
@@ -209,8 +209,8 @@ export const ErrorDetailPage: React.FC = () => {
       <div className="fixed top-0 right-0 w-96 h-96 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-0 left-64 w-80 h-80 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
 
-      <main className="overflow-auto flex-1">
-        <div className="p-8 space-y-7 animate-fade-in-up">
+      <main className="overflow-auto flex-1 md:ml-64 w-full">
+        <div className="p-4 pt-20 md:p-8 space-y-7 animate-fade-in-up">
 
           {/* ── Header ── */}
           <div className="flex items-start gap-4">
@@ -228,7 +228,7 @@ export const ErrorDetailPage: React.FC = () => {
               <h1 className="text-xl font-bold text-white break-words leading-tight mb-1">
                 {error.message}
               </h1>
-              <p className="text-slate-500 font-mono text-[10px]">{error.fingerprint}</p>
+              <p className="text-slate-500 font-mono text-[10px] overflow-x-auto">{error.fingerprint}</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <Button variant="secondary" size="sm" onClick={copyJson}>

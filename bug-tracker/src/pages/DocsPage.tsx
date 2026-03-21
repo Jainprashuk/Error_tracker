@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
-import {  useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { DOCS_SECTIONS } from "../types/docsSections";
+import { Sidebar } from "../components/Sidebar";
 
 
 export function DocsPage() {
@@ -368,78 +369,81 @@ async function fetchUser(id: string) {
   const displaySections = sections.filter((s) => s.id === activeSection);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="space-y-8">
-          {/* Main Content */}
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      <Sidebar />
+      <main className="flex-1 w-full md:ml-64">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-12 pt-24 md:pt-12">
           <div className="space-y-8">
-            {displaySections.map((section) => (
-              <div key={section.id} className="space-y-6">
-                <div className="flex items-center gap-3 mb-8">
-                  <span className="text-4xl">{section.icon}</span>
-                  <h2 className="text-3xl font-bold">{section.title}</h2>
-                </div>
-
-                {section.subsections.map((subsection, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6 hover:border-blue-500/30 transition-all"
-                  >
-                    <h3 className="text-xl font-semibold mb-4 text-blue-400">
-                      {subsection.title}
-                    </h3>
-
-                    <p className="text-slate-300 mb-4 leading-relaxed whitespace-pre-wrap">
-                      {subsection.content}
-                    </p>
-
-                    {subsection.code && (
-                      <div className="relative">
-                        <pre className="bg-slate-950 rounded-lg p-4 overflow-x-auto border border-slate-600/50">
-                          <code className="text-sm text-slate-200 font-mono">
-                            {subsection.code}
-                          </code>
-                        </pre>
-                        <button
-                          onClick={() =>
-                            copyToClipboard(
-                              subsection.code!,
-                              `${section.id}-${idx}`,
-                            )
-                          }
-                          className="absolute top-3 right-3 p-2 bg-slate-700/50 hover:bg-slate-600 rounded transition-colors"
-                          title="Copy to clipboard"
-                        >
-                          {copiedCode === `${section.id}-${idx}` ? (
-                            <Check size={18} className="text-green-400" />
-                          ) : (
-                            <Copy size={18} className="text-slate-300" />
-                          )}
-                        </button>
-                      </div>
-                    )}
+            {/* Main Content */}
+            <div className="space-y-8">
+              {displaySections.map((section) => (
+                <div key={section.id} className="space-y-6">
+                  <div className="flex items-center gap-3 mb-8">
+                    <span className="text-4xl">{section.icon}</span>
+                    <h2 className="text-3xl font-bold">{section.title}</h2>
                   </div>
-                ))}
-              </div>
-            ))}
 
-            {/* Footer CTA */}
-            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl p-8 text-center mt-12">
-              <h3 className="text-2xl font-bold mb-3">Ready to get started?</h3>
-              <p className="text-slate-300 mb-6">
-                Create an account and start monitoring your application errors
-                in minutes.
-              </p>
-              <a
-                href="/login"
-                className="inline-block px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-lg font-semibold transition-all duration-200 active:scale-95"
-              >
-                Create Your Account
-              </a>
+                  {section.subsections.map((subsection, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6 hover:border-blue-500/30 transition-all"
+                    >
+                      <h3 className="text-xl font-semibold mb-4 text-blue-400">
+                        {subsection.title}
+                      </h3>
+
+                      <p className="text-slate-300 mb-4 leading-relaxed whitespace-pre-wrap">
+                        {subsection.content}
+                      </p>
+
+                      {subsection.code && (
+                        <div className="relative">
+                          <pre className="bg-slate-950 rounded-lg p-4 overflow-x-auto border border-slate-600/50">
+                            <code className="text-sm text-slate-200 font-mono">
+                              {subsection.code}
+                            </code>
+                          </pre>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(
+                                subsection.code!,
+                                `${section.id}-${idx}`,
+                              )
+                            }
+                            className="absolute top-3 right-3 p-2 bg-slate-700/50 hover:bg-slate-600 rounded transition-colors"
+                            title="Copy to clipboard"
+                          >
+                            {copiedCode === `${section.id}-${idx}` ? (
+                              <Check size={18} className="text-green-400" />
+                            ) : (
+                              <Copy size={18} className="text-slate-300" />
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+
+              {/* Footer CTA */}
+              <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl p-8 text-center mt-12">
+                <h3 className="text-2xl font-bold mb-3">Ready to get started?</h3>
+                <p className="text-slate-300 mb-6">
+                  Create an account and start monitoring your application errors
+                  in minutes.
+                </p>
+                <a
+                  href="/login"
+                  className="inline-block px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-lg font-semibold transition-all duration-200 active:scale-95"
+                >
+                  Create Your Account
+                </a>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

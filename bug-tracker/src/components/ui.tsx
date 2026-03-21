@@ -278,7 +278,7 @@ interface TabsProps {
 }
 
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange }) => (
-  <div className="flex items-center gap-1 bg-slate-900/60 backdrop-blur border border-slate-700/50 rounded-xl p-1">
+  <div className="flex items-center gap-1 bg-slate-900/60 backdrop-blur border border-slate-700/50 rounded-xl p-1 max-w-100 overflow-x-auto">
     {tabs
       .filter(tab => tab.show !== false)
       .map((tab) => (

@@ -51,8 +51,8 @@ export const TicketsPage: React.FC = () => {
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 overflow-hidden">
       <Sidebar />
-      <main className="overflow-auto flex-1 ">
-        <div className="p-8 space-y-7">
+      <main className="overflow-auto flex-1 md:ml-64 w-full">
+        <div className="p-4 pt-20 md:p-8 space-y-7">
           <div className="flex items-center gap-4 animate-fade-in-up">
             <h1 className="text-2xl font-bold gradient-text truncate">Tickets</h1>
             <Badge variant="info">{tickets.length}</Badge>
