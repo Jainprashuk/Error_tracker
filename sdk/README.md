@@ -243,27 +243,44 @@ initBugTracker({
 
 You can connect your BugTracker project to your own OpenProject instance for seamless ticket creation directly from the dashboard.
 
-### How to Set Up OpenProject Integration
+### 🛠️ OpenProject Integration
 
-1. **Go to the Settings Page**
-  - In the BugTracker dashboard, open your project and navigate to the **Settings** tab.
+Connect your BugTracker project with your OpenProject instance to automatically create tickets from errors.
 
-2. **Select Your Project**
-  - Use the project selector to choose the project you want to integrate.
+---
 
-3. **Fill in OpenProject Details**
-  - In the **OpenProject Integration** section, enter:
-    - **OpenProject Base URL** (e.g., `https://yourcompany.openproject.com`)
-    - **API Key** (generate from your OpenProject user profile)
-    - **Project ID** (numeric ID of your OpenProject project)
+#### 🔧 Setup Steps
+
+1. **Go to Settings**
+   - Open the BugTracker dashboard  
+   - Navigate to the **Settings** tab inside your project  
+
+2. **Select Project**
+   - Choose the project you want to integrate  
+
+3. **Enter OpenProject Details**
+   Fill in the following:
+
+   - **Base URL**  
+     Example: `https://yourcompany.openproject.com`
+
+   - **API Key**  
+     Generate it from your OpenProject user profile
+
+   - **Project ID**  
+     Numeric ID of your OpenProject project
 
 4. **Save Integration**
-  - Click **Update** to save your integration settings.
+   - Click **Save Integration** to apply changes  
 
-5. **Create Tickets from Errors**
-  - Now, when viewing errors in the dashboard, you can generate OpenProject tickets with one click. The ticket will be created in your OpenProject project with all relevant error details.
+5. **Create Tickets**
+   - Go to the errors dashboard  
+   - Click **Create Ticket** on any error  
+   - A ticket will be created in your OpenProject project automatically  
 
-> **Note:** Your API Key is stored securely and only used for ticket creation.
+---
+
+> 🔒 **Note:** Your API key is securely stored and only used for ticket creation.
 
 ---
 ## Integration with BugTracker Dashboard
