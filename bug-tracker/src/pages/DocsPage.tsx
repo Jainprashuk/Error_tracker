@@ -182,6 +182,83 @@ initBugTracker({
       ],
     },
     {
+      id: "feature-config",
+      title: "Feature Configuration",
+      icon: "🛠️",
+      subsections: [
+        {
+          title: "Basic Configuration",
+          content: "BugTracker SDK allows you to enable or customize features based on your needs:",
+          code: `initBugTracker({
+  apiKey: "your-api-key",
+  axios,
+  features: {
+    captureScreenshots: {
+      fetchErrors: true,
+      axiosErrors: true,
+      consoleErrors: true,
+    },
+    manualBugReport: {
+      captureScreenshot: true,
+      floatingButton: () => {
+        const btn = document.createElement("button");
+        btn.textContent = "💬 Feedback";
+        btn.style.background = "#6366f1";
+        btn.style.color = "white";
+        // ... additional styling ...
+        return btn;
+      },
+      modalSchema: {
+        title: "Report an Issue",
+        fields: [
+          { name: "description", label: "Description", type: "textarea" },
+          { name: "email", label: "Email", type: "text" },
+        ],
+      },
+    },
+    capturePerformance: true,
+  },
+});`,
+        },
+        {
+          title: "📸 Screenshot Capture",
+          content: "Configure exactly when screenshots are captured with error logs:",
+          code: `features: {
+  captureScreenshots: {
+    fetchErrors: true,   // Capture on fetch failures
+    axiosErrors: true,   // Capture on axios failures
+    consoleErrors: true, // Capture on console errors
+  }
+}`,
+        },
+        {
+          title: "📝 Manual Bug Reporting",
+          content: "Customize feedback UI directly on your website to collect rich user feedback:",
+          code: `features: {
+  manualBugReport: {
+    captureScreenshot: true,
+    modalSchema: {
+      title: "Send Feedback",
+      fields: [
+        { name: "description", type: "textarea" },
+        { name: "email", type: "text" },
+        {
+          name: "category",
+          type: "select",
+          options: ["Bug", "UI Issue", "Suggestion"],
+        },
+      ],
+    },
+  }
+}`,
+        },
+        {
+          title: "⚡ Performance Tracking",
+          content: "Toggle `capturePerformance: true` in your initialization config to enable continuous performance monitoring logs and payload latency tracking."
+        }
+      ]
+    },
+    {
       id: "error-tracking",
       title: "Error Tracking",
       icon: "🎯",
@@ -298,6 +375,34 @@ Each project displays:
 Each time you create a new project, a unique API key is automatically generated.`,
         },
       ],
+    },
+    {
+      id: "integrations",
+      title: "Integrations",
+      icon: "🔗",
+      subsections: [
+        {
+          title: "🛠️ OpenProject Integration",
+          content: "Connect your BugTracker project with your OpenProject instance to automatically create tickets from your errors."
+        },
+        {
+          title: "Setup Steps",
+          content: `1. Go to your BugTracker dashboard and navigate to the Settings tab.
+2. Select the project context.
+3. Add your OpenProject details:
+   - Base URL (e.g., https://yourcompany.openproject.com)
+   - API Key (Generated from OpenProject user profile)
+   - Project ID (Numeric ID of your OpenProject workspace)`
+        },
+        {
+          title: "Ticket Generation",
+          content: `Once integrated, go to your errors dashboard on BugTracker:
+- Instead of manually filing bug reports, click the "Generate" icon next to any active error.
+- An OpenProject ticket is instantly spun up and deep-linked into the BugTracker UI. Your internal team can immediately debug with pre-attached stack traces and error metadata!
+
+Note: Your integration keys are securely encrypted at rest.`
+        }
+      ]
     },
     {
       id: "best-practices",

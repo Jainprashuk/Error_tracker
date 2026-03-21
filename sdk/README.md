@@ -10,6 +10,7 @@ A lightweight JavaScript SDK for automatically tracking frontend errors, API fai
 - ✅ **Smart Fingerprinting** - Groups similar errors automatically
 - ✅ **Lightweight** - Minimal overhead on your application
 - ✅ **Image Capture** - Capture Image At the time Of bug
+- ✅ **Manual Bug Trigger** - Schema-based bug reporting form with a floating button for instant user feedback.
 - ✅ **Ticket Integration** - Create OpenProject Ticket From Dashboard In Your Openproject
 ---
 
