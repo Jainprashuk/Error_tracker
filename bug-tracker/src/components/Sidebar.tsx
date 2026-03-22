@@ -11,14 +11,30 @@ interface NavItem {
   badge?: string | number;
 }
 
+import { useClerk } from '@clerk/clerk-react';
+
 export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user } = useAuthStore();
+  const { signOut } = useClerk();
 
   const handleLogout = async () => {
-    logout();
-    navigate('/');
+    try {
+      // 1. Sign out from Clerk (Essential for clearing OAuth session)
+      await signOut();
+
+      // 2. Clear local session
+      logout();
+
+      // 3. Navigate away
+      navigate('/login');
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Fallback local logout
+      logout();
+      navigate('/login');
+    }
   };
 
   const navItems: NavItem[] = [

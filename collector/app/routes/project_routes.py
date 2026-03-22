@@ -4,7 +4,7 @@ from app.models.project_model import CreateProject
 from app.services.db import db
 from app.utils.api_key import generate_api_key
 from bson import ObjectId
-from datetime import datetime
+from app.utils.encryption import decrypt_data
 
 router = APIRouter()
 
@@ -43,6 +43,15 @@ def get_user_projects(user_id: str):
     for p in projects:
         p["_id"] = str(p["_id"])
         p["user_id"] = str(p["user_id"])
+        
+        # Safely decrypt nested OpenProject API key for the FE Settings Page
+        try:
+            if p.get("integrations") and p["integrations"].get("openproject"):
+                op = p["integrations"]["openproject"]
+                if op.get("api_key"):
+                    op["api_key"] = decrypt_data(op["api_key"])
+        except Exception:
+            pass
 
     return projects
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from app.services.db import projects_collection
 from bson import ObjectId
 import httpx
+from app.utils.encryption import encrypt_data
 
 router = APIRouter()
 
@@ -17,13 +18,15 @@ def save_openproject_config(project_id: str, config: dict):
     if not config.get("base_url") or not config.get("api_key"):
         raise HTTPException(status_code=400, detail="Missing required fields")
 
+    encrypted_api_key = encrypt_data(config.get("api_key"))
+
     update_result = projects_collection.update_one(
         {"_id": project_obj_id},
         {
             "$set": {
                 "integrations.openproject": {
                     "base_url": config.get("base_url"),
-                    "api_key": config.get("api_key"),
+                    "api_key": encrypted_api_key,
                     "op_project_id": config.get("project_id")  # 🔥 rename
                 }
             }

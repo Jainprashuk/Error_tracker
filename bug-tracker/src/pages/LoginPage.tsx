@@ -1,204 +1,191 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button, Input } from '../components/ui';
-import { useAuthStore } from '../store/auth';
-import toast from 'react-hot-toast';
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+  useUser,
+} from "@clerk/clerk-react";
+import { useAuthStore } from "../store/auth";
+import {
+  Terminal,
+  ShieldCheck,
+  Zap,
+  ArrowRight,
+  CheckCircle2,
+  Github,
+  Globe
+} from "lucide-react";
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setUser } = useAuthStore();
-  const [isLogin, setIsLogin] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '',
-  });
+  const { user } = useAuthStore();
+  const { isSignedIn, isLoaded } = useUser();
 
+  // Automatic redirect if fully synced
   useEffect(() => {
-    // Check if already logged in
-    const session = localStorage.getItem('session');
-    if (session) {
-      navigate('/dashboard');
+    if (isLoaded && isSignedIn && user) {
+      navigate("/dashboard");
     }
-  }, [navigate]);
+  }, [isLoaded, isSignedIn, user, navigate]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const payload = isLogin
-        ? { email: formData.email, password: formData.password }
-        : { email: formData.email, password: formData.password, name: formData.name };
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'}${endpoint}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Authentication failed');
-      }
-
-      const data = await response.json();
-
-      // Store session with JWT token
-      localStorage.setItem('session', JSON.stringify({
-        user: {
-          id: data.user_id,
-          name: data.name,
-          email: data.email,
-        },
-        token: data.token,
-      }));
-
-      // Update auth store
-      setUser({
-        id: data.user_id,
-        name: data.name,
-        email: data.email,
-      });
-
-      toast.success(isLogin ? "Login successful" : "Account created successfully");
-      navigate('/dashboard');
-    } catch (err) {
-      console.error('Authentication error:', err);
-      const msg = err instanceof Error ? err.message : 'Authentication failed. Please try again.';
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-white">
+        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+        <p className="text-slate-400 font-medium animate-pulse">Initializing Bug Tracker...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo and Title */}
-        <div className="text-center mb-12">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
-            <span className="text-3xl font-bold text-white">⚡</span>
+    <div className="min-h-screen bg-[#020617] relative overflow-hidden flex items-center justify-center p-6">
+      {/* Dynamic Background Elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none" />
+
+      <div className="w-full max-w-[1000px] grid lg:grid-cols-2 gap-12 items-center relative z-10">
+
+        {/* Left Side: Brand & Value Prop */}
+        <div className="hidden lg:flex flex-col space-y-8 animate-fade-in">
+          <div className="flex items-center space-y-1">
+            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 mr-4">
+              <Zap className="text-white fill-white" size={24} />
+            </div>
+            <h2 className="text-2xl font-bold text-white tracking-tight">BugTracker <span className="text-blue-500"></span></h2>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-2">
-            Bug Tracker
+
+          <h1 className="text-5xl font-extrabold text-white leading-tight">
+            Monitor your <br />
+            <span className="gradient-text">stack in real-time.</span>
           </h1>
-          <p className="text-slate-400">Professional error monitoring for developers</p>
-        </div>
 
-        {/* Login/Register Card */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 space-y-6 shadow-2xl shadow-blue-500/10">
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-2">
-              {isLogin ? 'Welcome Back' : 'Create Account'}
-            </h2>
-            <p className="text-slate-400">
-              {isLogin ? 'Sign in to your account' : 'Sign up to get started'}
-            </p>
-          </div>
+          <p className="text-lg text-slate-400 leading-relaxed max-w-md">
+            The next-generation error tracking platform for developers who value speed, safety, and deep insights.
+          </p>
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-900/20 border border-red-800/50 rounded-lg p-4">
-              <p className="text-red-300 text-sm font-medium">{error}</p>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {!isLogin && (
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">Full Name</label>
-                <Input
-                  type="text"
-                  name="name"
-                  placeholder="John Doe"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  disabled={isLoading}
-                  required={!isLogin}
-                />
+          <div className="space-y-4">
+            {[
+              { icon: <Terminal size={18} />, text: "Native SDK for Finding Bugs" },
+              { icon: <ShieldCheck size={18} />, text: "Secure data encryption" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center space-x-3 text-slate-300 animate-slide-in" style={{ animationDelay: `${i * 100}ms` }}>
+                <div className="p-2 bg-slate-800/50 rounded-lg text-blue-400">
+                  {item.icon}
+                </div>
+                <span className="font-medium text-sm">{item.text}</span>
               </div>
-            )}
-
-            <div>
-              <label className="block text-white text-sm font-medium mb-2">Email Address</label>
-              <Input
-                type="email"
-                name="email"
-                placeholder="you@example.com"
-                value={formData.email}
-                onChange={handleInputChange}
-                disabled={isLoading}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-white text-sm font-medium mb-2">Password</label>
-              <Input
-                type="password"
-                name="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={handleInputChange}
-                disabled={isLoading}
-                required
-              />
-            </div>
-
-            <Button
-              variant="primary"
-              size="lg"
-              type="submit"
-              isLoading={isLoading}
-              className="w-full mt-6"
-            >
-              {isLogin ? 'Sign In' : 'Create Account'}
-            </Button>
-          </form>
-
-          {/* Toggle Login/Register */}
-          <div className="text-center pt-2">
-            <p className="text-slate-400 text-sm">
-              {isLogin ? "Don't have an account? " : 'Already have an account? '}
-              <button
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setError('');
-                  setFormData({ email: '', password: '', name: '' });
-                }}
-                className="text-blue-400 hover:text-blue-300 font-semibold transition-colors"
-              >
-                {isLogin ? 'Sign Up' : 'Sign In'}
-              </button>
-            </p>
+            ))}
           </div>
 
 
         </div>
 
-        {/* Footer */}
-        <div className="mt-8 text-center text-slate-500 text-sm">
-          <p>By signing in, you agree to our Terms of Service and Privacy Policy</p>
+        {/* Right Side: Auth Card */}
+        <div className="flex justify-center">
+          <div className="w-full max-w-md glass glow-blue rounded-3xl p-8 lg:p-10 animate-fade-in-up shadow-2xl relative overflow-hidden">
+            {/* Header */}
+            <div className="text-center mb-10">
+              <div className="lg:hidden w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mx-auto mb-6">
+                <Zap className="text-white fill-white" size={28} />
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
+              <p className="text-slate-400">Identify, triage, and fix bugs faster.</p>
+            </div>
+
+            {/* Feature Checkmarks (Compact) */}
+            <div className="flex justify-center gap-4 mb-8">
+              {['Secure', 'Fast', 'Insights'].map((label) => (
+                <div key={label} className="flex items-center space-x-1 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full">
+                  <CheckCircle2 size={12} className="text-blue-400" />
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-blue-400">{label}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-4 relative z-10">
+              {/* Signed Out View */}
+              <SignedOut>
+                <div className="space-y-4">
+                  <SignInButton mode="modal">
+                    <button className="group w-full px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20">
+                      Sign in to your account
+                      <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </SignInButton>
+
+                  <SignUpButton mode="modal">
+                    <button className="w-full px-6 py-3.5 border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/40 text-slate-200 rounded-xl font-semibold transition-all duration-300">
+                      Create new account
+                    </button>
+                  </SignUpButton>
+                </div>
+
+                <div className="relative py-4">
+                  <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div className="w-full border-t border-slate-800"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-[#1e293b]/0 px-2 text-slate-500">Trusted by Open Source</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button className="flex items-center justify-center space-x-2 p-2.5 border border-slate-800 rounded-xl hover:bg-slate-800/50 transition">
+                    <Github size={18} className="text-slate-400" />
+                    <span className="text-xs font-medium text-slate-400">Github</span>
+                  </button>
+                  <button className="flex items-center justify-center space-x-2 p-2.5 border border-slate-800 rounded-xl hover:bg-slate-800/50 transition">
+                    <Globe size={18} className="text-slate-400" />
+                    <span className="text-xs font-medium text-slate-400">Google</span>
+                  </button>
+                </div>
+              </SignedOut>
+
+              {/* Signed In View */}
+              <SignedIn>
+                <div className="flex flex-col items-center space-y-6 pt-2">
+                  <div className="p-1 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full shadow-lg">
+                    <div className="bg-slate-900 rounded-full p-0.5">
+                      <UserButton
+                        appearance={{
+                          elements: {
+                            userButtonAvatarBox: "w-16 h-16",
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    <p className="text-slate-300 font-medium mb-1">Session Active</p>
+                    <p className="text-xs text-slate-500">Authenticated via Clerk</p>
+                  </div>
+
+                  <button
+                    onClick={() => navigate("/dashboard")}
+                    className="group w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-2xl font-bold transition-all duration-300 flex items-center justify-center gap-3 shadow-xl shadow-blue-500/20"
+                  >
+                    Enter Dashboard
+                    <Zap size={18} className="group-hover:scale-125 transition-transform" />
+                  </button>
+                </div>
+              </SignedIn>
+            </div>
+
+            {/* Bottom Accent */}
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"></div>
+          </div>
         </div>
+
       </div>
+
+      {/* Background Blobs Overlay */}
+      <div className="absolute top-1/4 right-1/4 w-64 h-64 bg-blue-500/5 blur-[100px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-indigo-500/5 blur-[100px] rounded-full pointer-events-none" />
     </div>
   );
 };

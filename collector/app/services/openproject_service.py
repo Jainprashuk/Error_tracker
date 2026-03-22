@@ -2,7 +2,7 @@ import httpx
 import json
 import os
 from app.utils.ticket_generate import generate_title, build_description
-
+from app.utils.encryption import decrypt_data
 
 async def create_openproject_ticket(error: dict, op_config: dict):
 
@@ -33,7 +33,7 @@ async def create_openproject_ticket(error: dict, op_config: dict):
         response = await client.post(
             url,
             headers={
-                "Authorization": f"Bearer {op_config['api_key']}",
+                "Authorization": f"Bearer {decrypt_data(op_config['api_key'])}",
                 "Content-Type": "application/json"
             },
             json=payload
