@@ -1,4 +1,4 @@
-# BugTracker SDK
+# BugTracker SDK 👉 [Read on Medium](https://medium.com/@29jainprashuk/stop-guessing-production-bugs-track-javascript-errors-with-screenshots-api-logs-user-feedback-aaec659877dd)
 
 A lightweight JavaScript SDK for automatically tracking frontend errors, API failures, and console issues in your applications. The SDK works seamlessly with both Axios and Fetch APIs.
 
