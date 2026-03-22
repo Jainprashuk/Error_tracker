@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /docs
+
+# Disallow authenticated pages
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /projects
+Disallow: /errors/
+
+Sitemap: https://bugtracker.sh/sitemap.xml

@@ -3,6 +3,7 @@ import { Copy, Check } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { DOCS_SECTIONS } from "../types/docsSections";
 import { Sidebar } from "../components/Sidebar";
+import { SEO } from "../components/SEO";
 
 
 export function DocsPage() {
@@ -475,6 +476,10 @@ async function fetchUser(id: string) {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      <SEO
+        title={`Documentation: ${displaySections[0]?.title || 'Overview'}`}
+        description="Comprehensive documentation for BugTracker SDK integration, API key generation, and feature configuration."
+      />
       <Sidebar />
       <main className="flex-1 w-full md:ml-64">
         <div className="mx-auto px-4 sm:px-6 lg:px-8 py-12 pt-24 md:pt-12">

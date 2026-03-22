@@ -18,6 +18,7 @@ import {
   Github,
   Globe
 } from "lucide-react";
+import { SEO } from "../components/SEO";
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -42,6 +43,10 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] relative overflow-hidden flex items-center justify-center p-6">
+      <SEO
+        title="Sign In"
+        description="Sign in to your BugTracker account to monitor errors, manage projects, and improve your app stability."
+      />
       {/* Dynamic Background Elements */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full" />

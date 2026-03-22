@@ -138,11 +138,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/docs" element={<DocsPage />} />
           <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/project/:id" element={<ProjectPage />} />
             <Route path="/error/:fingerprint" element={<ErrorDetailPage />} />
-            <Route path="/docs" element={<DocsPage />} />
             <Route path="/tickets" element={<TicketsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

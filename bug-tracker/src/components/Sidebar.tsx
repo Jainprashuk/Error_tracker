@@ -37,16 +37,17 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  const navItems: NavItem[] = [
-    { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-    { label: 'Tickets', icon: Ticket, href: '/tickets' },
-    { label: 'Settings', icon: Settings, href: '/settings' },
-    {
-      label: 'Docs',
-      icon: Zap,
-      href: '/docs',
-    }
-  ];
+  const navItems: NavItem[] = user
+    ? [
+      { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+      { label: 'Tickets', icon: Ticket, href: '/tickets' },
+      { label: 'Settings', icon: Settings, href: '/settings' },
+      { label: 'Docs', icon: Zap, href: '/docs' }
+    ]
+    : [
+      { label: 'Landing Page', icon: LayoutDashboard, href: '/' },
+      { label: 'Docs', icon: Zap, href: '/docs' }
+    ];
 
   // For docs subtabs
   const [searchParams, setSearchParams] = useSearchParams();
@@ -188,14 +189,24 @@ export const Sidebar: React.FC = () => {
             </div>
           )}
 
-          <button
-            id="sidebar-logout-btn"
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 border border-transparent transition-all duration-200 text-sm font-medium"
-          >
-            <LogOut size={15} />
-            <span>Sign out</span>
-          </button>
+          {user ? (
+            <button
+              id="sidebar-logout-btn"
+              onClick={handleLogout}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 border border-transparent transition-all duration-200 text-sm font-medium"
+            >
+              <LogOut size={15} />
+              <span>Sign out</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all duration-200 text-sm font-medium shadow-lg shadow-blue-500/10"
+            >
+              <Zap size={15} />
+              <span>Get Started</span>
+            </button>
+          )}
         </div>
       </aside>
     </>

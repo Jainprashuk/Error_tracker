@@ -14,6 +14,7 @@ import {
   Menu,
   X,
 } from 'lucide-react';
+import { SEO } from '../components/SEO';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -38,6 +39,10 @@ export const LandingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      <SEO
+        title="BugTracker - Know when your app breaks"
+        description="BugTracker automatically captures JavaScript errors, API failures and console issues from your frontend applications. Real-time monitoring and powerful developer dashboard."
+      />
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -70,10 +75,10 @@ export const LandingPage: React.FC = () => {
                 onClick={() => scrollToSection('pricing')}
                 className="text-slate-300 hover:text-white transition-colors"
               >
-                Pricing
+                Preview
               </button>
               <a
-                href="/login"
+                href="/docs"
                 className="text-slate-300 hover:text-white transition-colors"
               >
                 Docs
@@ -128,7 +133,7 @@ export const LandingPage: React.FC = () => {
                 onClick={() => scrollToSection('pricing')}
                 className="block w-full text-left px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800/50 rounded transition-colors"
               >
-                Pricing
+                Preview
               </button>
               <button
                 onClick={() => navigate('/docs')}
@@ -477,9 +482,9 @@ initBugTracker({
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
-                    Pricing
-                  </a>
+                  <button onClick={() => scrollToSection('pricing')} className="hover:text-white transition-colors text-left">
+                    Preview
+                  </button>
                 </li>
               </ul>
             </div>
@@ -487,12 +492,12 @@ initBugTracker({
               <h4 className="font-bold mb-4">Resources</h4>
               <ul className="space-y-2 text-slate-400 text-sm">
                 <li>
-                  <a href="/login" className="hover:text-white transition-colors">
+                  <a href="/docs" className="hover:text-white transition-colors">
                     Docs
                   </a>
                 </li>
                 <li>
-                  <a href="/login" className="hover:text-white transition-colors">
+                  <a href="/docs" className="hover:text-white transition-colors">
                     API Reference
                   </a>
                 </li>
