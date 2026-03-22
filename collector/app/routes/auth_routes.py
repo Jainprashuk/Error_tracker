@@ -26,9 +26,13 @@ class LoginResponse(BaseModel):
     name: str
     token: str
 
-
 class User(BaseModel):
     id: str
+    email: str
+    name: str
+
+class ClerkSyncRequest(BaseModel):
+    clerk_id: str
     email: str
     name: str
 
@@ -76,91 +80,43 @@ def verify_token(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-@router.post("/auth/login", response_model=LoginResponse)
-def login(request: LoginRequest):
+@router.post("/auth/clerk-sync", response_model=LoginResponse)
+def sync_clerk_user(request: ClerkSyncRequest):
     """
-    Login with email and password.
-    User must be registered first.
-    """
-    try:
-        email = request.email.lower().strip()
-        password = request.password
-        
-        if not email or not password:
-            raise HTTPException(status_code=400, detail="Email and password required")
-        
-        # Check if user exists
-        existing_user = users_collection.find_one({"email": email})
-        
-        if not existing_user:
-            # User doesn't exist - must register first
-            raise HTTPException(status_code=401, detail="User not found. Please sign up first.")
-        
-        # User exists - verify password
-        stored_password = existing_user.get("password")
-        if stored_password != password:
-            raise HTTPException(status_code=401, detail="Invalid password")
-        
-        user_id = str(existing_user["_id"])
-        user_name = existing_user.get("name", email)
-        
-        # Create JWT token
-        token = create_access_token(user_id=user_id, email=email)
-        
-        return LoginResponse(
-            user_id=user_id,
-            email=email,
-            name=user_name,
-            token=token
-        )
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/auth/register", response_model=LoginResponse)
-def register(request: LoginRequest):
-    """
-    Register a new user with email and password.
+    Synchronizes an authenticated Clerk OAuth user into the local MongoDB instance.
+    This replaces the insecure generic email/password routes!
     """
     try:
         email = request.email.lower().strip()
         name = request.name or email.split("@")[0]
-        password = request.password
         
-        if not email or not password:
-            raise HTTPException(status_code=400, detail="Email and password required")
-        
-        # Check if user already exists
+        # Upsert user based on Clerk ID or email
         existing_user = users_collection.find_one({"email": email})
         
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Email already registered")
-        
-        # Create new user
-        result = users_collection.insert_one({
-            "email": email,
-            "name": name,
-            "password": password,  # In production, hash this with bcrypt!
-            "created_at": datetime.utcnow()
-        })
-        
-        user_id = str(result.inserted_id)
-        
-        # Create JWT token
-        token = create_access_token(user_id=user_id, email=email)
-        
+        if not existing_user:
+            # First time logging in with Google/Github
+            result = users_collection.insert_one({
+                "clerk_id": request.clerk_id,
+                "email": email,
+                "name": name,
+                "created_at": datetime.utcnow()
+            })
+            user_id = str(result.inserted_id)
+        else:
+            # Map existing DB user to their new Google/Github Auth ID
+            users_collection.update_one(
+                {"_id": existing_user["_id"]}, 
+                {"$set": {"clerk_id": request.clerk_id, "name": name}}
+            )
+            user_id = str(existing_user["_id"])
+            
         return LoginResponse(
             user_id=user_id,
             email=email,
             name=name,
-            token=token
+            token=request.clerk_id
         )
-    
-    except HTTPException:
-        raise
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
