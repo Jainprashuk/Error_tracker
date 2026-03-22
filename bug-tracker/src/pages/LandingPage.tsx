@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
+import { useAuthStore } from '../store/auth';
 import {
   ChevronRight,
   AlertCircle,
@@ -15,7 +17,16 @@ import {
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const { isSignedIn, isLoaded } = useUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Auto-redirect if already fully authenticated
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      navigate('/dashboard');
+    }
+  }, [isLoaded, isSignedIn, user, navigate]);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -403,11 +414,10 @@ initBugTracker({
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
                           <div
-                            className={`w-3 h-3 rounded-full ${
-                              error.severity === 'critical'
-                                ? 'bg-red-500'
-                                : 'bg-orange-500'
-                            }`}
+                            className={`w-3 h-3 rounded-full ${error.severity === 'critical'
+                              ? 'bg-red-500'
+                              : 'bg-orange-500'
+                              }`}
                           ></div>
                           <div>
                             <p className="font-semibold text-white">{error.type}</p>
