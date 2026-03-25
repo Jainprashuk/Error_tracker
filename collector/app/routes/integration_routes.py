@@ -18,7 +18,10 @@ def save_openproject_config(project_id: str, config: dict):
     if not config.get("base_url") or not config.get("api_key"):
         raise HTTPException(status_code=400, detail="Missing required fields")
 
-    encrypted_api_key = encrypt_data(config.get("api_key"))
+    # The frontend will now send it encrypted. We decrypt it first, then re-encrypt for DB storage.
+    from app.utils.encryption import decrypt_data
+    raw_api_key = decrypt_data(config.get("api_key"))
+    encrypted_api_key = encrypt_data(raw_api_key)
 
     update_result = projects_collection.update_one(
         {"_id": project_obj_id},
@@ -42,14 +45,19 @@ def save_openproject_config(project_id: str, config: dict):
 @router.post("/integrations/openproject/test")
 async def test_openproject(config: dict):
 
+    # Decrypt if it's coming from FE encrypted
+    from app.utils.encryption import decrypt_data
+    decrypted_api_key = decrypt_data(config.get("api_key"))
+
     try:
         async with httpx.AsyncClient() as client:
             res = await client.get(
                 f"{config['base_url'].rstrip('/')}/api/v3/projects/{config['project_id']}",
                 headers={
-                    "Authorization": f"Bearer {config['api_key']}"
+                    "Authorization": f"Bearer {decrypted_api_key}"
                 }
             )
+
 
         if res.status_code == 200:
             return {"status": "success"}

@@ -1,36 +1,87 @@
 import os
+import base64
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Secret key required for Fernet encryption. It must be 32 url-safe base64-encoded bytes.
-# We pull it from env, but provide a safe fallback for local development if it's missing.
-_key = os.getenv("ENCRYPTION_KEY")
-if not _key:
-    # A valid fallback Fernet key generated for dev usage to prevent crashes.
-    _key = b"VbK3Fk-HlsP6Kx8GZ7p7b_Q-n_hUaM2iXk9D9VcFvTQ="
-else:
-    _key = _key.encode('utf-8')
+# We pull the key from env, but provide a safe fallback for local development if it's missing.
+# For AES-256-CBC, we need 32 bytes.
+_key_str = os.getenv("ENCRYPTION_KEY", "VbK3Fk-HlsP6Kx8GZ7p7b_Q-n_hUaM2iXk9D9VcFvTQ=")
+try:
+    _key_bytes = base64.urlsafe_b64decode(_key_str)
+    if len(_key_bytes) != 32:
+        # Fallback to something 32 bytes if not valid
+        _key_bytes = _key_str.encode('utf-8').ljust(32, b'\0')[:32]
+except Exception:
+    _key_bytes = _key_str.encode('utf-8').ljust(32, b'\0')[:32]
 
-fernet = Fernet(_key)
+# Maintain fernet for backward compatibility
+_fernet = Fernet(base64.urlsafe_b64encode(_key_bytes))
 
 def encrypt_data(data: str) -> str:
-    """Encrypts plaintext string using symmetric Fernet encryption."""
+    """
+    Encrypts plaintext string using AES-256-CBC with a random IV.
+    Returns: B64(IV + Ciphertext)
+    """
     if not data:
         return data
-    # Simple check if already looks like a fernet token (begins with gAAAA...)
-    if data.startswith("gAAAAAB"):
+    
+    # Check if already looks encrypted by new method (starts with iv_ prefix or specific format)
+    # Actually, we don't need a prefix if we just try-catch.
+    
+    try:
+        iv = os.urandom(16)
+        cipher = Cipher(algorithms.AES(_key_bytes), modes.CBC(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        
+        # Pad data
+        padder = padding.PKCS7(128).padder()
+        padded_data = padder.update(data.encode('utf-8')) + padder.finalize()
+        
+        ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+        
+        # Combine IV and ciphertext and base64 encode
+        combined = iv + ciphertext
+        return base64.b64encode(combined).decode('utf-8')
+    except Exception as e:
+        print(f"Encryption error: {e}")
         return data
-    return fernet.encrypt(data.encode('utf-8')).decode('utf-8')
 
 def decrypt_data(encrypted_data: str) -> str:
-    """Decrypts string encoded by Fernet back to plaintext. Fails gracefully."""
+    """
+    Decrypts string. Tries AES-256-CBC first, then falls back to Fernet, then returns as-is.
+    """
     if not encrypted_data:
         return encrypted_data
+    
+    # Try AES-256-CBC (New Default)
     try:
-        return fernet.decrypt(encrypted_data.encode('utf-8')).decode('utf-8')
+        combined = base64.b64decode(encrypted_data)
+        if len(combined) > 16:
+            iv = combined[:16]
+            ciphertext = combined[16:]
+            
+            cipher = Cipher(algorithms.AES(_key_bytes), modes.CBC(iv), backend=default_backend())
+            decryptor = cipher.decryptor()
+            
+            padded_data = decryptor.update(ciphertext) + decryptor.finalize()
+            
+            unpadder = padding.PKCS7(128).unpadder()
+            data = unpadder.update(padded_data) + unpadder.finalize()
+            
+            return data.decode('utf-8')
     except Exception:
-        # If decryption fails (e.g. invalid key or unencrypted legacy text), return original.
-        # This provides backward compatibility for already-saved plaintext API keys in DB!
+        # If AES-CBC fails, try Fernet
+        pass
+
+    # Try Fernet (Backward Compatibility)
+    try:
+        return _fernet.decrypt(encrypted_data.encode('utf-8')).decode('utf-8')
+    except Exception:
+        # If decryption fails (unencrypted legacy text), return original.
         return encrypted_data
+

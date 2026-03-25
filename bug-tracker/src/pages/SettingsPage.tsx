@@ -3,6 +3,7 @@ import { Sidebar } from "../components/Sidebar";
 import { Eye, EyeOff, Settings, Link as LinkIcon, Save, RefreshCw, Layers } from "lucide-react";
 import toast from "react-hot-toast";
 import { Card, Button, Input, Badge } from "../components/ui";
+import { encrypt, decrypt } from "../utils/crypto";
 
 export const SettingsPage: React.FC = () => {
   const API = import.meta.env.VITE_API_BASE_URL;
@@ -58,7 +59,8 @@ export const SettingsPage: React.FC = () => {
 
       if (op) {
         setBaseUrl(op.base_url || "");
-        setApiKey(op.api_key || "");
+        // Decrypt the API key from the backend response
+        setApiKey(decrypt(op.api_key || ""));
         setProjectId(op.op_project_id || "");
       } else {
         setBaseUrl("");
@@ -83,7 +85,8 @@ export const SettingsPage: React.FC = () => {
         },
         body: JSON.stringify({
           base_url: baseUrl,
-          api_key: apiKey,
+          // Encrypt before sending to the backend
+          api_key: encrypt(apiKey),
           project_id: Number(projectId),
         }),
       });
@@ -125,7 +128,8 @@ export const SettingsPage: React.FC = () => {
           },
           body: JSON.stringify({
             base_url: baseUrl,
-            api_key: apiKey,
+            // Encrypt before sending to the backend
+            api_key: encrypt(apiKey),
             project_id: Number(projectId),
           }),
         }
