@@ -48,7 +48,6 @@ def encrypt_data(data: str) -> str:
         combined = iv + ciphertext
         return base64.b64encode(combined).decode('utf-8')
     except Exception as e:
-        print(f"Encryption error: {e}")
         return data
 
 def decrypt_data(encrypted_data: str) -> str:

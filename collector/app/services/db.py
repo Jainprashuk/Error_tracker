@@ -56,3 +56,10 @@ db = client[os.getenv("db_name")]
 users_collection = db["users"]
 projects_collection = db["projects"]
 errors_collection = db["errors"]
+
+# Create indexes for performance (background=True prevents locking)
+errors_collection.create_index(
+    [("project_id", 1), ("fingerprint", 1)],
+    name="idx_project_fingerprint",
+    background=True
+)

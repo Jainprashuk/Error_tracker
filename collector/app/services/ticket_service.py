@@ -5,7 +5,15 @@ from app.utils.stack_parser import parse_stack_trace
 from app.utils.s3upload import upload_screenshot
 
 
-def ParseError(payload, project_id):
+from app.services.alert_service import get_project_alert_config, should_send_alert, update_alert_status, log_alert
+from app.services.email_service import send_email_alert
+from app.services.db import db
+from bson import ObjectId
+import os
+
+projects_collection = db["projects"]
+
+async def ParseError(payload, project_id):
 
     endpoint = None
     message = None
@@ -68,10 +76,12 @@ def ParseError(payload, project_id):
                 "$set": update_data
             }
         )
-
+        # Re-fetch existing to get updated count for alert check
+        updated_error = errors_collection.find_one({"fingerprint": fingerprint})
+    
     else:
 
-        errors_collection.insert_one({
+        new_error = {
             "project_id": project_id,
             "fingerprint": fingerprint,
             "event_type": event_type,
@@ -82,4 +92,46 @@ def ParseError(payload, project_id):
             "first_seen": datetime.utcnow(),
             "last_seen": datetime.utcnow(),
             "is_ticket_generated": False
-        })
+        }
+        errors_collection.insert_one(new_error)
+        updated_error = new_error
+
+    # --- 🚨 Alerting System Integration 🚨 ---
+    try:
+        project_config = get_project_alert_config(str(project_id))
+        project = projects_collection.find_one({"_id": ObjectId(project_id)})
+        project_name = project.get("name", "Unknown Project") if project else "Unknown Project"
+        
+        alert_type = should_send_alert(updated_error, project_config)
+        
+        if alert_type:
+            recipients = project_config.get("channels", {}).get("email", {}).get("recipients", [])
+            
+            email_payload = {
+                "alert_type": alert_type,
+                "error_message": message or "No message",
+                "project_name": project_name,
+                "dashboard_link": f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/error/{fingerprint}",
+                "new_errors_count": updated_error.get("occurrences", 1) - updated_error.get("notifiedCount", 0),
+                "total_count": updated_error.get("occurrences", 1),
+                "screenshot_url": screenshot_url,
+                "ticket_url": updated_error.get("ticket_url")
+            }
+
+            print("sending alert to " , recipients)
+            
+            # Send alert
+            success = await send_email_alert(recipients, email_payload)
+
+            print("alert sent successfully" , success)
+            
+            if success:
+                # Update lastNotifiedAt and notifiedCount
+                update_alert_status(fingerprint, updated_error.get("occurrences", 1))
+                # Log the alert decision
+                log_alert(str(project_id), fingerprint, alert_type, f"Sent alert successfully to {len(recipients)} recipients")
+            else:
+                log_alert(str(project_id), fingerprint, "ERROR", f"Failed to send alert of type {alert_type}")
+                
+    except Exception as e:
+        print(f"❌ Error in alerting system: {str(e)}")
