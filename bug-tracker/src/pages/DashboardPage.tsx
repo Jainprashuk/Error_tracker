@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, AlertTriangle, LayoutGrid, Clock,
-  ArrowRight, Activity, Zap, RefreshCw, Eye, EyeOff,
+  ArrowRight, Activity, Zap, RefreshCw, Eye, EyeOff, Bell, MessageSquare, X
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Skeleton, StatCard, EmptyState, Badge } from '../components/ui';
@@ -12,6 +12,7 @@ import type { Project } from '../types';
 import { ResponsiveContainer } from 'recharts';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import toast from 'react-hot-toast';
+import { encrypt } from '../utils/crypto';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -153,6 +154,9 @@ export const DashboardPage: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [alertLogs, setAlertLogs] = useState<any[]>([]);
+  const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const [isLogsLoading, setIsLogsLoading] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -238,7 +242,38 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  const handleCreateProject = async (name: string) => {
+  const fetchAlertLogs = async () => {
+    if (projects.length === 0) return;
+    setIsLogsLoading(true);
+    setIsAlertsOpen(!isAlertsOpen);
+
+    if (!isAlertsOpen) { // Only fetch if we are opening it
+      try {
+        const session = JSON.parse(localStorage.getItem('session') || "{}");
+        const allLogs = await Promise.all(
+          projects.map(async (p) => {
+            const res = await fetch(`${API_BASE_URL}/projects/${p.id}/alerts/logs`, {
+              headers: { Authorization: `Bearer ${session.token}` }
+            });
+            return res.ok ? await res.json() : [];
+          })
+        );
+
+        // Flatten and sort by date
+        const flatLogs = allLogs.flat().sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ).slice(0, 10); // Show only latest 10
+
+        setAlertLogs(flatLogs);
+      } catch (err) {
+        console.error("Failed to fetch alert logs", err);
+      } finally {
+        setIsLogsLoading(false);
+      }
+    }
+  };
+
+  const handleCreateProject = async (name: string, configs?: any) => {
     if (!user) return;
     setIsCreating(true);
     try {
@@ -254,9 +289,60 @@ export const DashboardPage: React.FC = () => {
       if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
 
       const result = await response.json();
+      const newProjectId = result.project_id || result.id;
+
+      // 🔥 Handle Advanced Configs if provided
+      if (configs && newProjectId) {
+        // 1. OpenProject Integration
+        if (configs.openProject) {
+          try {
+            const encryptedKey = encrypt(configs.openProject.token);
+            await fetch(`${API_BASE_URL}/projects/${newProjectId}/integrations/openproject`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                base_url: configs.openProject.url,
+                api_key: encryptedKey,
+                project_id: configs.openProject.projectId
+              })
+            });
+          } catch (e) {
+            console.error("Failed to save OpenProject config during creation", e);
+          }
+        }
+
+        // 2. Alert Config
+        if (configs.alerts) {
+          try {
+            await fetch(`${API_BASE_URL}/projects/${newProjectId}/alert-config`, {
+              method: 'PUT',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                channels: {
+                  email: {
+                    enabled: true,
+                    recipients: configs.alerts.recipients
+                  }
+                },
+                triggers: {
+                  newError: configs.alerts.triggers.newError,
+                  spike: {
+                    enabled: configs.alerts.triggers.spike,
+                    threshold: configs.alerts.spikeThreshold
+                  }
+                },
+                cooldown: configs.alerts.cooldown
+              })
+            });
+          } catch (e) {
+            console.error("Failed to save Alert config during creation", e);
+          }
+        }
+      }
+
       await loadProjects();
-      toast.success('Project created successfully!');
-      return { apiKey: result.api_key, projectId: result.project_id };
+      toast.success('Project created and configured!');
+      return { apiKey: result.api_key, projectId: newProjectId };
     } catch (err) {
       console.error('Failed to create project:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to create project');
@@ -282,7 +368,7 @@ export const DashboardPage: React.FC = () => {
         <div className="p-4 pt-20 md:p-8 space-y-6 md:space-y-8">
 
           {/* ── Header ── */}
-          <div className="flex items-start justify-between animate-fade-in-up">
+          <div className="flex items-start justify-between animate-fade-in-up relative z-50">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs text-slate-500 font-medium uppercase tracking-widest">Overview</span>
@@ -295,15 +381,96 @@ export const DashboardPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 relative">
               <button
                 id="dashboard-refresh-btn"
                 onClick={() => loadProjects(true)}
                 disabled={isRefreshing}
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800/60 border border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600/70 transition-all duration-200 active:scale-95"
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800/60 border border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600/70 transition-all duration-200 active:scale-95"
               >
-                <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+                <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
               </button>
+
+              <div className="relative">
+                <button
+                  onClick={fetchAlertLogs}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 border ${isAlertsOpen
+                    ? "bg-blue-600/20 border-blue-500/50 text-blue-400"
+                    : "bg-slate-800/60 border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600/70"
+                    }`}
+                >
+                  <Bell size={18} />
+                  {alertLogs.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-slate-900 animate-pulse" />
+                  )}
+                </button>
+
+                {isAlertsOpen && (
+                  <div
+                    className="absolute right-0 mt-3 w-[400px] border border-slate-700/80 rounded-2xl shadow-[0_50px_120px_rgba(0,0,0,1)] z-[300] overflow-hidden animate-fade-in-up origin-top-right ring-4 ring-white/5"
+                    style={{ backgroundColor: '#020617', opacity: 1 }}
+                  >
+                    <div className="px-6 py-5 border-b border-slate-800 bg-[#0f172a] flex items-center justify-between">
+                      <h3 className="text-sm font-black text-white flex items-center gap-3 tracking-widest uppercase">
+                        <MessageSquare size={18} className="text-blue-400" />
+                        Live Alert Center
+                      </h3>
+                      <button onClick={() => setIsAlertsOpen(false)} className="text-slate-500 hover:text-white transition-colors bg-slate-800/80 p-1.5 rounded-lg hover:bg-slate-700">
+                        <X size={20} />
+                      </button>
+                    </div>
+                    <div className="max-h-[480px] overflow-y-auto" style={{ backgroundColor: '#020617' }}>
+                      {isLogsLoading ? (
+                        <div className="p-16 flex flex-col items-center justify-center gap-4">
+                          <RefreshCw className="animate-spin text-blue-500" size={32} />
+                          <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em]">INITIALIZING FEED...</p>
+                        </div>
+                      ) : alertLogs.length === 0 ? (
+                        <div className="p-16 text-center">
+                          <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-slate-800 shadow-inner">
+                            <Bell size={28} className="text-slate-700" />
+                          </div>
+                          <p className="text-sm text-slate-400 font-black tracking-tight">QUIET BEFORE THE STORM</p>
+                          <p className="text-[10px] text-slate-600 mt-1 font-bold">No critical events detected</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-800/80">
+                          {alertLogs.map((log, i) => (
+                            <div key={i} className="p-6 transition-all cursor-default group border-b border-slate-900 bg-[#020617] hover:bg-[#0f172a]">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded border ${log.type === 'SPIKE'
+                                    ? 'bg-red-500/10 text-red-400 border-red-500/40'
+                                    : 'bg-blue-500/10 text-blue-400 border-blue-500/40'
+                                    }`}>
+                                    {log.type}
+                                  </span>
+                                  <span className="w-1 h-1 rounded-full bg-slate-800" />
+                                  <span className="text-[10px] text-slate-500 font-black tracking-tight flex items-center gap-1.5 uppercase">
+                                    <Clock size={11} />
+                                    {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-sm text-slate-100 font-bold leading-relaxed mb-4">
+                                {log.detail}
+                              </p>
+                              <button
+                                onClick={() => navigate(`/error/${log.fingerprint}`)}
+                                className="text-[11px] font-bold text-blue-500 hover:text-blue-400 transition-all flex items-center gap-2 group/btn"
+                              >
+                                <span>VIEW DEEP TRACE</span>
+                                <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <Button
                 id="new-project-btn"
                 variant="primary"
@@ -379,25 +546,20 @@ export const DashboardPage: React.FC = () => {
                 <div className="p-4 pt-2">
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(71,85,105,0.2)" />
-
                       <XAxis
                         dataKey="name"
                         tick={{ fill: '#64748b', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
-
                       <YAxis
                         tick={{ fill: '#64748b', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                         allowDecimals={false}
                       />
-
                       <Tooltip content={<CustomTooltip />} />
-
                       <Bar
                         dataKey="errors"
                         radius={[6, 6, 0, 0]}
@@ -453,7 +615,6 @@ export const DashboardPage: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       </main>
 

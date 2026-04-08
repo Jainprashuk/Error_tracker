@@ -4,7 +4,7 @@ from app.models.project_model import CreateProject
 from app.services.db import db
 from app.utils.api_key import generate_api_key
 from bson import ObjectId
-from app.utils.encryption import decrypt_data
+from app.utils.encryption import decrypt_data, encrypt_data
 
 router = APIRouter()
 
@@ -44,14 +44,18 @@ def get_user_projects(user_id: str):
         p["_id"] = str(p["_id"])
         p["user_id"] = str(p["user_id"])
         
-        # Safely decrypt nested OpenProject API key for the FE Settings Page
+        # We decrypt from whatever format it is in the DB (Fernet or AES)
+        # and RE-ENCRYPT for the frontend specifically using the new format.
+        # This keeps the API key encrypted in transit but ensures the FE can decrypt it.
         try:
             if p.get("integrations") and p["integrations"].get("openproject"):
                 op = p["integrations"]["openproject"]
                 if op.get("api_key"):
-                    op["api_key"] = decrypt_data(op["api_key"])
+                    raw_key = decrypt_data(op["api_key"])
+                    op["api_key"] = encrypt_data(raw_key) # Now always uses new AES format
         except Exception:
             pass
+
 
     return projects
 

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Sidebar } from "../components/Sidebar";
-import { Eye, EyeOff, Settings, Link as LinkIcon, Save, RefreshCw, Layers } from "lucide-react";
+import { Eye, EyeOff, Settings, Link as LinkIcon, Save, RefreshCw, Layers, Bell, Trash2, Plus } from "lucide-react";
 import toast from "react-hot-toast";
 import { Card, Button, Input, Badge } from "../components/ui";
+import { encrypt, decrypt } from "../utils/crypto";
 
 export const SettingsPage: React.FC = () => {
   const API = import.meta.env.VITE_API_BASE_URL;
@@ -17,6 +18,9 @@ export const SettingsPage: React.FC = () => {
   const [showApiKey, setShowApiKey] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [loading, setLoading] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<any>(null);
+  const [alertLoading, setAlertLoading] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
 
   // 🔥 Fetch projects
   useEffect(() => {
@@ -58,7 +62,8 @@ export const SettingsPage: React.FC = () => {
 
       if (op) {
         setBaseUrl(op.base_url || "");
-        setApiKey(op.api_key || "");
+        // Decrypt the API key from the backend response
+        setApiKey(decrypt(op.api_key || ""));
         setProjectId(op.op_project_id || "");
       } else {
         setBaseUrl("");
@@ -68,6 +73,31 @@ export const SettingsPage: React.FC = () => {
     };
 
     fetchConfig();
+
+    const fetchAlertConfig = async () => {
+      const session = JSON.parse(localStorage.getItem("session") || "{}");
+      try {
+        console.log(`🔍 Fetching alert config for project: ${selectedProjectId}`);
+        const res = await fetch(`${API}/projects/${selectedProjectId}/alert-config`, {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+        });
+
+        if (!res.ok) {
+          console.error(`❌ Fetch alert config failed with status ${res.status}`);
+          return;
+        }
+
+        const data = await res.json();
+        console.log("✅ Fetched Alert Config:", data);
+        setAlertConfig(data);
+      } catch (err) {
+        console.error("❌ Failed to fetch alert config", err);
+      }
+    };
+
+    fetchAlertConfig();
   }, [selectedProjectId]);
 
   // 🔥 Test connection
@@ -83,7 +113,8 @@ export const SettingsPage: React.FC = () => {
         },
         body: JSON.stringify({
           base_url: baseUrl,
-          api_key: apiKey,
+          // Encrypt before sending to the backend
+          api_key: encrypt(apiKey),
           project_id: Number(projectId),
         }),
       });
@@ -125,7 +156,8 @@ export const SettingsPage: React.FC = () => {
           },
           body: JSON.stringify({
             base_url: baseUrl,
-            api_key: apiKey,
+            // Encrypt before sending to the backend
+            api_key: encrypt(apiKey),
             project_id: Number(projectId),
           }),
         }
@@ -139,6 +171,67 @@ export const SettingsPage: React.FC = () => {
     } catch (err: any) {
       toast.error(err.message);
     }
+  };
+
+  const handleSaveAlerts = async () => {
+    if (!selectedProjectId || !alertConfig) return;
+    setAlertLoading(true);
+    const session = JSON.parse(localStorage.getItem("session") || "{}");
+
+    try {
+      const res = await fetch(`${API}/projects/${selectedProjectId}/alert-config`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.token}`,
+        },
+        body: JSON.stringify(alertConfig),
+      });
+
+      if (!res.ok) throw new Error("Failed to save alert config");
+      toast.success("Alert settings updated");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setAlertLoading(false);
+    }
+  };
+
+  const addEmail = () => {
+    if (!newEmail || !newEmail.includes("@")) {
+      toast.error("Valid email required");
+      return;
+    }
+    const recipients = alertConfig.channels.email.recipients;
+    if (recipients.includes(newEmail)) {
+      toast.error("Email already added");
+      return;
+    }
+
+    setAlertConfig({
+      ...alertConfig,
+      channels: {
+        ...alertConfig.channels,
+        email: {
+          ...alertConfig.channels.email,
+          recipients: [...recipients, newEmail]
+        }
+      }
+    });
+    setNewEmail("");
+  };
+
+  const removeEmail = (email: string) => {
+    setAlertConfig({
+      ...alertConfig,
+      channels: {
+        ...alertConfig.channels,
+        email: {
+          ...alertConfig.channels.email,
+          recipients: alertConfig.channels.email.recipients.filter((re: string) => re !== email)
+        }
+      }
+    });
   };
 
   return (
@@ -263,6 +356,122 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
               </Card>
+
+              {alertConfig && (
+                <Card glow="amber">
+                  <div className="flex items-center justify-between border-b border-slate-700/40 pb-4 mb-6">
+                    <div className="flex items-center gap-2">
+                      <Bell size={18} className="text-amber-400" />
+                      <h2 className="text-lg font-semibold text-white">Alert Notifications</h2>
+                    </div>
+                    <Badge variant={alertConfig.channels.email.enabled ? "warning" : "default"} dot>
+                      {alertConfig.channels.email.enabled ? "Active" : "Disabled"}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Triggers Section */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div
+                        onClick={() => setAlertConfig({
+                          ...alertConfig,
+                          triggers: { ...alertConfig.triggers, newError: !alertConfig.triggers.newError }
+                        })}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer ${alertConfig.triggers.newError
+                          ? "bg-blue-500/10 border-blue-500/50 shadow-lg shadow-blue-500/10"
+                          : "bg-slate-900/40 border-slate-700/50 hover:border-slate-600"
+                          }`}
+                      >
+                        <h4 className="text-sm font-semibold text-white mb-1">New Errors</h4>
+                        <p className="text-xs text-slate-400">Notify instantly when a new unique error occurs.</p>
+                      </div>
+
+                      <div
+                        onClick={() => setAlertConfig({
+                          ...alertConfig,
+                          triggers: {
+                            ...alertConfig.triggers,
+                            spike: { ...alertConfig.triggers.spike, enabled: !alertConfig.triggers.spike.enabled }
+                          }
+                        })}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer ${alertConfig.triggers.spike.enabled
+                          ? "bg-amber-500/10 border-amber-500/50 shadow-lg shadow-amber-500/10"
+                          : "bg-slate-900/40 border-slate-700/50 hover:border-slate-600"
+                          }`}
+                      >
+                        <h4 className="text-sm font-semibold text-white mb-1">Error Spike</h4>
+                        <p className="text-xs text-slate-400">Notify when error occurrences exceed a threshold.</p>
+                      </div>
+                    </div>
+
+                    {/* Email Recipients */}
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-slate-400">Email Recipients</label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={newEmail}
+                          onChange={(e) => setNewEmail(e.target.value)}
+                          placeholder="engineering@company.com"
+                          onKeyDown={(e) => e.key === "Enter" && addEmail()}
+                        />
+                        <Button variant="outline" size="sm" onClick={addEmail}>
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {alertConfig.channels.email.recipients.map((email: string) => (
+                          <div key={email} className="flex items-center gap-2 bg-slate-900/60 border border-slate-700/50 px-3 py-1.5 rounded-lg text-xs text-slate-300">
+                            {email}
+                            <button onClick={() => removeEmail(email)} className="text-slate-500 hover:text-red-400 transition-colors">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Additional Settings */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-700/40">
+                      <div>
+                        <label className="text-sm font-medium text-slate-400 mb-1.5 block">Cooldown (minutes)</label>
+                        <Input
+                          type="number"
+                          value={alertConfig.cooldown}
+                          onChange={(e) => setAlertConfig({ ...alertConfig, cooldown: Number(e.target.value) })}
+                        />
+                      </div>
+                      {alertConfig.triggers.spike.enabled && (
+                        <div>
+                          <label className="text-sm font-medium text-slate-400 mb-1.5 block">Spike Threshold</label>
+                          <Input
+                            type="number"
+                            value={alertConfig.triggers.spike.threshold}
+                            onChange={(e) => setAlertConfig({
+                              ...alertConfig,
+                              triggers: {
+                                ...alertConfig.triggers,
+                                spike: { ...alertConfig.triggers.spike, threshold: Number(e.target.value) }
+                              }
+                            })}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-4">
+                      <Button
+                        variant="primary"
+                        onClick={handleSaveAlerts}
+                        isLoading={alertLoading}
+                        className="w-full"
+                      >
+                        <Save size={16} />
+                        Update Alert Configuration
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
             </div>
 
             {/* Sidebar info section */}

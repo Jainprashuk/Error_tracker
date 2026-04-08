@@ -15,10 +15,8 @@ projects_collection = db["projects"]
 async def report_error(payload: ErrorPayload, request: Request):
 
     raw_body = await request.json()
-    print("🔥 RAW BODY:", raw_body)
 
     payload_dict = payload.model_dump()
-    print("✅ PARSED BODY:", payload_dict)
 
     api_key = request.headers.get("x-api-key")
 
@@ -31,7 +29,7 @@ async def report_error(payload: ErrorPayload, request: Request):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     # 🔥 Pass dict instead of model (flexible parsing)
-    ParseError(payload_dict, project["_id"])
+    await ParseError(payload_dict, project["_id"])
 
     return {"status": "received"}
 
