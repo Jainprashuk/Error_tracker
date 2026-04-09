@@ -4,7 +4,9 @@ from pydantic import BaseModel
 import jwt
 import os
 from typing import Optional
+from bson import ObjectId
 from app.services.db import users_collection
+
 
 router = APIRouter()
 
@@ -81,21 +83,20 @@ def verify_token(authorization: Optional[str] = Header(None)):
 
 
 @router.post("/auth/clerk-sync", response_model=LoginResponse)
-def sync_clerk_user(request: ClerkSyncRequest):
+async def sync_clerk_user(request: ClerkSyncRequest):
     """
     Synchronizes an authenticated Clerk OAuth user into the local MongoDB instance.
-    This replaces the insecure generic email/password routes!
     """
     try:
         email = request.email.lower().strip()
         name = request.name or email.split("@")[0]
         
-        # Upsert user based on Clerk ID or email
-        existing_user = users_collection.find_one({"email": email})
+        # 💡 P1: Await async lookup
+        existing_user = await users_collection.find_one({"email": email})
         
         if not existing_user:
-            # First time logging in with Google/Github
-            result = users_collection.insert_one({
+            # First time logging in
+            result = await users_collection.insert_one({
                 "clerk_id": request.clerk_id,
                 "email": email,
                 "name": name,
@@ -103,8 +104,8 @@ def sync_clerk_user(request: ClerkSyncRequest):
             })
             user_id = str(result.inserted_id)
         else:
-            # Map existing DB user to their new Google/Github Auth ID
-            users_collection.update_one(
+            # Update existing user
+            await users_collection.update_one(
                 {"_id": existing_user["_id"]}, 
                 {"$set": {"clerk_id": request.clerk_id, "name": name}}
             )
@@ -122,11 +123,12 @@ def sync_clerk_user(request: ClerkSyncRequest):
 
 
 @router.get("/auth/verify", response_model=User)
-def verify_auth(current_user: dict = Depends(verify_token)):
+async def verify_auth(current_user: dict = Depends(verify_token)):
     """
     Verify the current JWT token and return user info.
     """
-    user = users_collection.find_one({"_id": current_user["user_id"]})
+    # 💡 P1: Await async lookup (ObjectId convert needed if current_user['user_id'] is string)
+    user = await users_collection.find_one({"_id": ObjectId(current_user["user_id"])})
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

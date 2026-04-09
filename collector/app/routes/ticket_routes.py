@@ -11,7 +11,8 @@ router = APIRouter()
 @router.post("/tickets/openproject/{fingerprint}")
 async def create_ticket_from_error(fingerprint: str):
 
-    error = errors_collection.find_one({"fingerprint": fingerprint})
+    # 💡 P1: Await async find
+    error = await errors_collection.find_one({"fingerprint": fingerprint})
 
     if not error:
         raise HTTPException(status_code=404, detail="Error not found")
@@ -20,7 +21,7 @@ async def create_ticket_from_error(fingerprint: str):
         raise HTTPException(status_code=400, detail="Ticket already generated")
 
     project_id = error.get("project_id")
-    project = projects_collection.find_one({"_id": project_id})
+    project = await projects_collection.find_one({"_id": project_id})
 
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -36,7 +37,8 @@ async def create_ticket_from_error(fingerprint: str):
         ticket_id = result.get("id")
         ticket_url = f"{op_config['base_url']}/work_packages/{ticket_id}"
 
-        errors_collection.update_one(
+        # 💡 P1: Await async update
+        await errors_collection.update_one(
             {"fingerprint": fingerprint},
             {
                 "$set": {
@@ -55,22 +57,21 @@ async def create_ticket_from_error(fingerprint: str):
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.get("/projects/{project_id}/tickets")
-def get_project_tickets(project_id: str):
+async def get_project_tickets(project_id: str):
 
-    tickets = list(
-        errors_collection.find(
-            {
-                "project_id": ObjectId(project_id),
-                "is_ticket_generated": True
-            },
-            {
-                "_id": 0,
-                "fingerprint": 1,
-                "ticket_url": 1,
-                "event_type": 1,
-                "last_seen": 1
-            }
-        )
-    )
+    # 💡 P1: Await async find + to_list
+    tickets = await errors_collection.find(
+        {
+            "project_id": ObjectId(project_id),
+            "is_ticket_generated": True
+        },
+        {
+            "_id": 0,
+            "fingerprint": 1,
+            "ticket_url": 1,
+            "event_type": 1,
+            "last_seen": 1
+        }
+    ).to_list(length=100)
 
     return tickets

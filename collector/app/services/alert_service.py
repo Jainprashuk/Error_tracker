@@ -23,12 +23,12 @@ DEFAULT_CONFIG = {
     "cooldown": 60  # minutes
 }
 
-def get_project_alert_config(project_id: str) -> Dict[str, Any]:
-    config = alerts_config_collection.find_one({"projectId": ObjectId(project_id)})
+async def get_project_alert_config(project_id: str) -> Dict[str, Any]:
+    config = await alerts_config_collection.find_one({"projectId": ObjectId(project_id)})
     if not config:
         # Create default config if it doesn't exist
         config = {**DEFAULT_CONFIG, "projectId": ObjectId(project_id)}
-        alerts_config_collection.insert_one(config)
+        await alerts_config_collection.insert_one(config)
     
     config["_id"] = str(config["_id"])
     config["projectId"] = str(config["projectId"])
@@ -36,32 +36,33 @@ def get_project_alert_config(project_id: str) -> Dict[str, Any]:
 
 def should_send_alert(error_group: Dict[str, Any], config: Dict[str, Any]):
     """
-    Returns alert type (NEW_ERROR / SPIKE) or None
+    Returns alert type (NEW_ERROR / SPIKE) or None.
     """
-    print(config , "<-- Config for project")
+    # 0. Global Channel Check
+    channels = config.get("channels", {})
+    email_channel = channels.get("email", {})
+    if not email_channel.get("enabled"):
+        return None
+
     now = datetime.utcnow()
     last_notified = error_group.get("lastNotifiedAt")
     cooldown_minutes = config.get("cooldown", 60)
     
-    fingerprint = error_group.get("fingerprint")
-    print(f"🔔 [ALERT ENGINE] Checking fingerprint: {fingerprint}")
-
     # 1. Cooldown check
     if last_notified:
         diff = now - last_notified
         if diff < timedelta(minutes=cooldown_minutes):
-            print(f"   ⏳ Cooldown ACTIVE: {diff.total_seconds() / 60:.1f}m elapsed < {cooldown_minutes}m")
             return None
-        print(f"   ✅ Cooldown EXPIRED: {diff.total_seconds() / 60:.1f}m elapsed")
     
     count = error_group.get("occurrences", 1)
     notified_count = error_group.get("notifiedCount", 0)
     
     triggers = config.get("triggers", {})
     
-    # 2. New Error
-    if count == 1 and triggers.get("newError"):
-        print(f"   ✨ Trigger: NEW_ERROR (Match)")
+    # 2. New Error (or newly seen by alert system)
+    # 💡 FIX: If notified_count is 0, it means we have NEVER sent an alert for this fingerprint.
+    # This allows alerting even if the error happened before recipients were configured.
+    if notified_count == 0 and triggers.get("newError"):
         return "NEW_ERROR"
     
     # 3. Spike
@@ -70,18 +71,15 @@ def should_send_alert(error_group: Dict[str, Any], config: Dict[str, Any]):
         threshold = spike_config.get("threshold", 10)
         new_since_last = count - notified_count
         if new_since_last >= threshold:
-            print(f"   📈 Trigger: SPIKE Match ({new_since_last} new errors >= {threshold})")
             return "SPIKE"
-        print(f"   ℹ️  Spike Info: {new_since_last} new errors < {threshold} threshold")
             
-    print(f"   💤 Decision: NO_ALERT")
     return None
 
-def update_alert_status(fingerprint: str, count: int):
-    print(f"🔄 [DB UPDATE] Updating alert status for fingerprint: {fingerprint}")
-    print(f"   Setting notifiedCount to: {count}")
+
+async def update_alert_status(fingerprint: str, count: int):
+    # Using local import to avoid circular dependencies if any
     from app.services.db import errors_collection
-    res = errors_collection.update_one(
+    await errors_collection.update_one(
         {"fingerprint": fingerprint},
         {
             "$set": {
@@ -90,15 +88,13 @@ def update_alert_status(fingerprint: str, count: int):
             }
         }
     )
-    print(f"   Update result matched_count: {res.matched_count}")
 
-def log_alert(project_id: str, fingerprint: str, alert_type: str, detail: str):
-    print(f"📝 [DB LOG] Creating alert log for project_id: {project_id}")
-    print(f"   Type: {alert_type}, Detail: {detail}")
-    alerts_logs_collection.insert_one({
+async def log_alert(project_id: str, fingerprint: str, alert_type: str, detail: str):
+    await alerts_logs_collection.insert_one({
         "projectId": ObjectId(project_id),
         "fingerprint": fingerprint,
         "type": alert_type,
         "detail": detail,
         "createdAt": datetime.utcnow()
     })
+

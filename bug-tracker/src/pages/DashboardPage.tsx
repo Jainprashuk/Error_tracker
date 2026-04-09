@@ -206,7 +206,8 @@ export const DashboardPage: React.FC = () => {
               });
               if (errorsRes.ok) {
                 const errorsData = await errorsRes.json();
-                const errors = Array.isArray(errorsData) ? errorsData : [];
+                // 💡 Handle paginated response { data: [...] } or direct array
+                const errors = errorsData.data || (Array.isArray(errorsData) ? errorsData : []);
                 // Push every raw error so the chart can use real timestamps
                 allRawErrors.push(...errors);
                 errors.forEach((err: any) => {
@@ -220,7 +221,8 @@ export const DashboardPage: React.FC = () => {
                   if (!latest) return ts;
                   return new Date(ts) > new Date(latest) ? ts : latest;
                 }, null);
-                return { ...project, errorCount: errors.length, lastSeen: latestSeen };
+                return { ...project, errorCount: errorsData.total || errors.length, lastSeen: latestSeen };
+
               }
             } catch { /* silently ignore per-project error */ }
             return project;
@@ -318,6 +320,7 @@ export const DashboardPage: React.FC = () => {
               method: 'PUT',
               headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
+                projectId: newProjectId,
                 channels: {
                   email: {
                     enabled: true,
