@@ -94,7 +94,7 @@ const IssueRow: React.FC<IssueRowProps> = ({
       }
 
       if (!res.ok) {
-        throw new Error(data?.error || data?.message || res.statusText || 'Failed to create ticket');
+        throw new Error(data?.detail || data?.error || data?.message || res.statusText || 'Failed to create ticket');
       }
 
       toast.success(
@@ -239,7 +239,8 @@ export const ProjectPage: React.FC = () => {
       if (!errorsRes.ok) throw new Error('Failed to load errors');
 
       const errorsData = await errorsRes.json();
-      const projectErrors = Array.isArray(errorsData) ? errorsData : [];
+      // 💡 Handle paginated response { data: [...] } or direct array
+      const projectErrors = errorsData.data || (Array.isArray(errorsData) ? errorsData : []);
 
       setProject({
         id: projectData._id,
@@ -247,7 +248,7 @@ export const ProjectPage: React.FC = () => {
         apiKey: projectData.api_key,
         createdAt: projectData.created_at,
         userId: projectData.user_id,
-        errorCount: projectErrors.length,
+        errorCount: errorsData.total || projectErrors.length,
         lastSeen: projectErrors.length > 0
           ? (projectErrors[0].last_seen || projectErrors[0].lastSeen)
           : null,

@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.post("/projects/{project_id}/integrations/openproject")
-def save_openproject_config(project_id: str, config: dict):
+async def save_openproject_config(project_id: str, config: dict):
 
     try:
         project_obj_id = ObjectId(project_id)
@@ -23,7 +23,8 @@ def save_openproject_config(project_id: str, config: dict):
     raw_api_key = decrypt_data(config.get("api_key"))
     encrypted_api_key = encrypt_data(raw_api_key)
 
-    update_result = projects_collection.update_one(
+    # 💡 P1: Await async update
+    update_result = await projects_collection.update_one(
         {"_id": project_obj_id},
         {
             "$set": {
@@ -40,6 +41,7 @@ def save_openproject_config(project_id: str, config: dict):
         raise HTTPException(status_code=404, detail="Project not found")
 
     return {"status": "saved"}
+
 
 
 @router.post("/integrations/openproject/test")

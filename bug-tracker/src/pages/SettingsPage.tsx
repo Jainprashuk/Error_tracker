@@ -77,20 +77,21 @@ export const SettingsPage: React.FC = () => {
     const fetchAlertConfig = async () => {
       const session = JSON.parse(localStorage.getItem("session") || "{}");
       try {
-        console.log(`🔍 Fetching alert config for project: ${selectedProjectId}`);
         const res = await fetch(`${API}/projects/${selectedProjectId}/alert-config`, {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
+          headers: { Authorization: `Bearer ${session.token}` },
         });
 
         if (!res.ok) {
-          console.error(`❌ Fetch alert config failed with status ${res.status}`);
+          // 💡 Initialize default config for new projects so user can actually save!
+          setAlertConfig({
+            channels: { email: { enabled: false, recipients: [] } },
+            triggers: { newError: true, spike: { enabled: false, threshold: 10 } },
+            cooldown: 60
+          });
           return;
         }
 
         const data = await res.json();
-        console.log("✅ Fetched Alert Config:", data);
         setAlertConfig(data);
       } catch (err) {
         console.error("❌ Failed to fetch alert config", err);
@@ -121,16 +122,16 @@ export const SettingsPage: React.FC = () => {
 
       const data = await res.json();
 
-      if (data.status === "success") {
+      if (res.ok && data.status === "success") {
         setStatus("success");
         toast.success("Connection test successful");
       } else {
         setStatus("error");
-        toast.error("Connection test failed");
+        toast.error(data.detail || "Connection test failed");
       }
-    } catch {
+    } catch (err: any) {
       setStatus("error");
-      toast.error("Failed to test connection");
+      toast.error(err.message || "Failed to test connection");
     } finally {
       setLoading(false);
     }
@@ -179,16 +180,23 @@ export const SettingsPage: React.FC = () => {
     const session = JSON.parse(localStorage.getItem("session") || "{}");
 
     try {
+      // 💡 P0 FIX: Backend requires projectId in the body even if it is in the URL
+      const payload = {
+        ...alertConfig,
+        projectId: selectedProjectId
+      };
+
       const res = await fetch(`${API}/projects/${selectedProjectId}/alert-config`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.token}`,
         },
-        body: JSON.stringify(alertConfig),
+        body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error("Failed to save alert config");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to save alert config");
       toast.success("Alert settings updated");
     } catch (err: any) {
       toast.error(err.message);
@@ -364,20 +372,37 @@ export const SettingsPage: React.FC = () => {
                       <Bell size={18} className="text-amber-400" />
                       <h2 className="text-lg font-semibold text-white">Alert Notifications</h2>
                     </div>
-                    <Badge variant={alertConfig.channels.email.enabled ? "warning" : "default"} dot>
-                      {alertConfig.channels.email.enabled ? "Active" : "Disabled"}
-                    </Badge>
+                    <div className="flex items-center gap-3 ml-auto">
+                      <Badge variant={alertConfig?.channels?.email?.enabled ? "warning" : "default"} dot>
+                        {alertConfig?.channels?.email?.enabled ? "Active" : "Disabled"}
+                      </Badge>
+                      <button
+                        onClick={() => setAlertConfig({
+                          ...alertConfig,
+                          channels: {
+                            ...alertConfig.channels,
+                            email: { ...alertConfig.channels.email, enabled: !alertConfig.channels.email.enabled }
+                          }
+                        })}
+                        className={`text-[10px] font-bold px-2 py-1 rounded border transition-all ${alertConfig?.channels?.email?.enabled
+                          ? "bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20"
+                          : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                          }`}
+                      >
+                        {alertConfig?.channels?.email?.enabled ? "DISABLE" : "ENABLE"}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-6">
                     {/* Triggers Section */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div
-                        onClick={() => setAlertConfig({
+                        onClick={() => alertConfig && setAlertConfig({
                           ...alertConfig,
-                          triggers: { ...alertConfig.triggers, newError: !alertConfig.triggers.newError }
+                          triggers: { ...alertConfig?.triggers, newError: !alertConfig?.triggers?.newError }
                         })}
-                        className={`p-4 rounded-xl border transition-all cursor-pointer ${alertConfig.triggers.newError
+                        className={`p-4 rounded-xl border transition-all cursor-pointer ${alertConfig?.triggers?.newError
                           ? "bg-blue-500/10 border-blue-500/50 shadow-lg shadow-blue-500/10"
                           : "bg-slate-900/40 border-slate-700/50 hover:border-slate-600"
                           }`}
@@ -387,14 +412,14 @@ export const SettingsPage: React.FC = () => {
                       </div>
 
                       <div
-                        onClick={() => setAlertConfig({
+                        onClick={() => alertConfig && setAlertConfig({
                           ...alertConfig,
                           triggers: {
-                            ...alertConfig.triggers,
-                            spike: { ...alertConfig.triggers.spike, enabled: !alertConfig.triggers.spike.enabled }
+                            ...alertConfig?.triggers,
+                            spike: { ...alertConfig?.triggers?.spike, enabled: !alertConfig?.triggers?.spike?.enabled }
                           }
                         })}
-                        className={`p-4 rounded-xl border transition-all cursor-pointer ${alertConfig.triggers.spike.enabled
+                        className={`p-4 rounded-xl border transition-all cursor-pointer ${alertConfig?.triggers?.spike?.enabled
                           ? "bg-amber-500/10 border-amber-500/50 shadow-lg shadow-amber-500/10"
                           : "bg-slate-900/40 border-slate-700/50 hover:border-slate-600"
                           }`}
@@ -419,7 +444,7 @@ export const SettingsPage: React.FC = () => {
                         </Button>
                       </div>
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {alertConfig.channels.email.recipients.map((email: string) => (
+                        {alertConfig?.channels?.email?.recipients?.map((email: string) => (
                           <div key={email} className="flex items-center gap-2 bg-slate-900/60 border border-slate-700/50 px-3 py-1.5 rounded-lg text-xs text-slate-300">
                             {email}
                             <button onClick={() => removeEmail(email)} className="text-slate-500 hover:text-red-400 transition-colors">
@@ -436,21 +461,21 @@ export const SettingsPage: React.FC = () => {
                         <label className="text-sm font-medium text-slate-400 mb-1.5 block">Cooldown (minutes)</label>
                         <Input
                           type="number"
-                          value={alertConfig.cooldown}
+                          value={alertConfig?.cooldown || 0}
                           onChange={(e) => setAlertConfig({ ...alertConfig, cooldown: Number(e.target.value) })}
                         />
                       </div>
-                      {alertConfig.triggers.spike.enabled && (
+                      {alertConfig?.triggers?.spike?.enabled && (
                         <div>
                           <label className="text-sm font-medium text-slate-400 mb-1.5 block">Spike Threshold</label>
                           <Input
                             type="number"
-                            value={alertConfig.triggers.spike.threshold}
-                            onChange={(e) => setAlertConfig({
+                            value={alertConfig?.triggers?.spike?.threshold || 0}
+                            onChange={(e) => alertConfig && setAlertConfig({
                               ...alertConfig,
                               triggers: {
-                                ...alertConfig.triggers,
-                                spike: { ...alertConfig.triggers.spike, threshold: Number(e.target.value) }
+                                ...alertConfig?.triggers,
+                                spike: { ...alertConfig?.triggers?.spike, threshold: Number(e.target.value) }
                               }
                             })}
                           />

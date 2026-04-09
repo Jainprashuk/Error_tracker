@@ -1,19 +1,118 @@
 let apiKey = null;
 let collectorUrl = null;
+let queue = [];
+let flushTimer = null;
+const MAX_BATCH_SIZE = 10;
+const FLUSH_INTERVAL = 5000; // 5 seconds
+const STORAGE_KEY = 'bugtrace_retry_queue';
+
+let isInitialized = false;
 
 export function setConfig(config) {
   apiKey = config.apiKey;
   collectorUrl = config.collectorUrl;
+  
+  if (isInitialized) return;
+  isInitialized = true;
+  
+  // 💡 P1 FIX: Added 'Jitter' to stagger retries across clients.
+  const jitterDelay = 1000 + Math.random() * 4000;
+  setTimeout(tryFlushPersistentQueue, jitterDelay);
 }
 
-export function sendError(payload) {
 
-  fetch(`${collectorUrl}/report`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey
-    },
-    body: JSON.stringify(payload)
-  }).catch(() => {});
+
+const recentErrors = new Map();
+const COOLDOWN_MS = 5000;
+
+/**
+ * Public entry point for sending errors.
+ */
+export function sendError(payload) {
+  // 💡 P1 FIX: Added Local Cooldown / Deduplication
+  // Prevents spamming the server if the same error happens in a loop
+  const errorKey = `${payload.error?.message}-${payload.error?.stack}`;
+  const now = Date.now();
+  
+  if (recentErrors.has(errorKey)) {
+    const lastSeen = recentErrors.get(errorKey);
+    if (now - lastSeen < COOLDOWN_MS) {
+      console.warn("⚠️ BugTrace: Duplicate error suppressed (Local Cooldown)");
+      return;
+    }
+  }
+  
+  recentErrors.set(errorKey, now);
+
+  queue.push(payload);
+
+  if (queue.length >= MAX_BATCH_SIZE) {
+    flush();
+  } else if (!flushTimer) {
+    flushTimer = setTimeout(flush, FLUSH_INTERVAL);
+  }
+}
+
+async function flush() {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+
+  if (queue.length === 0) return;
+
+  const batch = [...queue];
+  queue = [];
+
+  try {
+    const success = await sendBatch(batch);
+    if (!success) {
+      persistToStorage(batch);
+    }
+  } catch (err) {
+    persistToStorage(batch);
+  }
+}
+
+async function sendBatch(batch) {
+  // 💡 P0 FIX: True Server-Side Batching
+  // Instead of individual calls, we send the entire array at once.
+  try {
+    const res = await fetch(`${collectorUrl}/report`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey
+      },
+      body: JSON.stringify(batch)
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("⚠️ BugTrace: Batch send failed", err);
+    return false;
+  }
+}
+
+function persistToStorage(failedBatch) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const updated = [...existing, ...failedBatch].slice(-50); // Keep last 50 only
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (e) {
+    // LocalStorage full or private mode
+  }
+}
+
+async function tryFlushPersistentQueue() {
+  if (!apiKey || !collectorUrl) return;
+
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    if (stored.length === 0) return;
+
+    localStorage.removeItem(STORAGE_KEY);
+    
+    // Process them through the normal queue
+    stored.forEach(item => sendError(item));
+  } catch (e) {}
 }

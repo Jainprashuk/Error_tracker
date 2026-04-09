@@ -10,7 +10,7 @@ router = APIRouter()
 @router.get("/projects/{project_id}/alert-config")
 async def get_alert_config_endpoint(project_id: str):
     try:
-        config = get_project_alert_config(project_id)
+        config = await get_project_alert_config(project_id)
         print(config , "fetched config")
         return config
     except Exception as e:
@@ -20,10 +20,10 @@ async def get_alert_config_endpoint(project_id: str):
 async def update_alert_config(project_id: str, payload: AlertConfigSchema):
     try:
         updated_data = payload.model_dump()
-        # Ensure projectId is stored as ObjectId and NOT popped before upsert
         updated_data["projectId"] = ObjectId(project_id)
         
-        result = alerts_config_collection.update_one(
+        # 💡 P1: Await async update
+        result = await alerts_config_collection.update_one(
             {"projectId": ObjectId(project_id)},
             {"$set": updated_data},
             upsert=True
@@ -36,7 +36,8 @@ async def update_alert_config(project_id: str, payload: AlertConfigSchema):
 @router.get("/projects/{project_id}/alerts/logs")
 async def get_alert_logs(project_id: str):
     try:
-        logs = list(alerts_logs_collection.find({"projectId": ObjectId(project_id)}).sort("createdAt", -1).limit(50))
+        # 💡 P1: Await async find + to_list
+        logs = await alerts_logs_collection.find({"projectId": ObjectId(project_id)}).sort("createdAt", -1).to_list(length=50)
         for log in logs:
             log["_id"] = str(log["_id"])
             log["projectId"] = str(log["projectId"])
@@ -44,3 +45,4 @@ async def get_alert_logs(project_id: str):
         return logs
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
