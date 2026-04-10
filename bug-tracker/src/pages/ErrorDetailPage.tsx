@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash,
-  FileCode, Globe, Zap, Image, ExternalLink, Terminal,
+  FileCode, Globe, Zap, Image, ExternalLink, Terminal, Activity, GitCommit
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton, Tabs } from '../components/ui';
@@ -136,6 +136,7 @@ export const ErrorDetailPage: React.FC = () => {
         response: errorData.payload?.response || undefined,
         payload: errorData.payload || {},
         performance: errorData.payload?.performance || undefined,
+        breadcrumbs: errorData.payload?.breadcrumbs || [],
       });
       console.log(error);
     } catch (err) {
@@ -192,6 +193,7 @@ export const ErrorDetailPage: React.FC = () => {
   // Build tabs dynamically
   const tabs = [
     { id: 'stack', label: 'Stack Trace', icon: <Terminal size={13} /> },
+    { id: 'breadcrumbs', label: 'User Footprints', icon: <GitCommit size={13} /> },
     { id: 'request', label: 'Request / Response', icon: <Globe size={13} /> },
     { id: 'perf', label: 'Performance', icon: <Zap size={13} /> },
     { id: 'screen', label: 'Screenshot', icon: <Image size={13} /> },
@@ -399,6 +401,61 @@ export const ErrorDetailPage: React.FC = () => {
                   </Card>
                 )}
               </div>
+            )}
+
+            {/* Breadcrumbs Timeline */}
+            {activeTab === 'breadcrumbs' && (
+              <Card>
+                <div className="flex items-center gap-2 mb-6">
+                   <div className="w-8 h-8 bg-blue-500/15 rounded-lg flex items-center justify-center">
+                     <Activity size={15} className="text-blue-400" />
+                   </div>
+                   <h2 className="text-sm font-semibold text-white">User Footprints (Pre-Crash Timeline)</h2>
+                </div>
+                
+                {error.breadcrumbs && error.breadcrumbs.length > 0 ? (
+                  <div className="relative border-l border-slate-700/50 ml-4 space-y-6 pb-4">
+                    {error.breadcrumbs.map((bc: any, idx: number) => {
+                       const timeString = new Date(bc.timestamp).toLocaleTimeString();
+                       return (
+                         <div key={idx} className="relative pl-6 animate-fade-in-up" style={{ animationDelay: `${idx * 50}ms` }}>
+                           {/* Timeline Node Bubble */}
+                           <div className={`absolute -left-[5px] top-1.5 w-[10px] h-[10px] rounded-full border-2 border-slate-900 ${
+                             bc.category === 'ui.click' ? 'bg-blue-400' :
+                             bc.category === 'navigation' ? 'bg-purple-400' :
+                             bc.category === 'error' ? 'bg-red-400' : 'bg-slate-400'
+                           }`} />
+                           <div className="bg-slate-900/60 border border-slate-700/40 rounded-xl p-3 max-w-2xl shadow-sm">
+                             <p className="text-[10px] text-slate-500 font-mono mb-1">{timeString} &mdash; {bc.category.toUpperCase()}</p>
+                             <p className="text-sm text-slate-200 font-medium break-words leading-relaxed">{bc.message}</p>
+                             {bc.data && bc.data.text && (
+                               <p className="mt-1.5 text-xs text-slate-400 font-mono italic">"{bc.data.text}"</p>
+                             )}
+                           </div>
+                         </div>
+                       )
+                    })}
+                    
+                    {/* Final Crash Bubble */}
+                    <div className="relative pl-6 animate-fade-in-up" style={{ animationDelay: `${error.breadcrumbs.length * 50}ms` }}>
+                       <div className="absolute -left-[6px] top-1.5 w-[12px] h-[12px] rounded-full border-2 border-slate-900 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                       <div className="bg-red-950/40 border border-red-500/30 rounded-xl p-3 max-w-2xl">
+                         <p className="text-[10px] text-red-400/80 font-mono mb-1">CRASH POINT</p>
+                         <p className="text-sm text-red-200 font-semibold">{error.message}</p>
+                       </div>
+                    </div>
+
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                     <div className="w-12 h-12 bg-slate-700/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                       <GitCommit size={20} className="text-slate-500" />
+                     </div>
+                     <p className="text-slate-400 text-sm font-medium mb-1">No footprints available</p>
+                     <p className="text-slate-500 text-xs">This crash did not record any user actions prior to execution.</p>
+                  </div>
+                )}
+              </Card>
             )}
 
             {/* Performance */}

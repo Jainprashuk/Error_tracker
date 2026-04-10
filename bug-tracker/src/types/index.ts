@@ -46,7 +46,7 @@ export interface ErrorDetail extends Error {
   screenshot_url?: string;
   performance?: any;
   metadata?: Record<string, any>;
-
+  breadcrumbs?: any[];
 }
 
 export interface User {
