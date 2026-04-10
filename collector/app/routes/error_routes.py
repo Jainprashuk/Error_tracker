@@ -14,6 +14,7 @@ async def report_error(payload: Union[ErrorPayload, List[ErrorPayload]], backgro
     """
     Primary ingestion endpoint. Supports both Single and Batch (Array) reporting.
     Validates API key and enqueues processing.
+    NOTE: performance event_type is NOT accepted here — use /report/performance.
     """
     api_key = request.headers.get("x-api-key")
 
@@ -26,6 +27,15 @@ async def report_error(payload: Union[ErrorPayload, List[ErrorPayload]], backgro
     if not project:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
+    # 🚫 Hard boundary: performance metrics must use /report/performance
+    items = payload if isinstance(payload, list) else [payload]
+    perf_count = sum(1 for item in items if item.event_type == "performance")
+    if perf_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Performance metrics must be sent to /report/performance, not /report"
+        )
+
     # 🔥 P0 FIX: Handle both single object and list of objects
     if isinstance(payload, list):
         for item in payload:
@@ -34,6 +44,7 @@ async def report_error(payload: Union[ErrorPayload, List[ErrorPayload]], backgro
         background_tasks.add_task(ParseError, payload.model_dump(), project["_id"])
 
     return {"status": "received", "batch_size": len(payload) if isinstance(payload, list) else 1}
+
 
 
 # GET all errors of a project (with pagination)

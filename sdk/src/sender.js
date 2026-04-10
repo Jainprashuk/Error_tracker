@@ -6,7 +6,50 @@ const MAX_BATCH_SIZE = 10;
 const FLUSH_INTERVAL = 5000; // 5 seconds
 const STORAGE_KEY = 'bugtrace_retry_queue';
 
+import { getBreadcrumbs } from "./breadcrumbs.js";
+
 let isInitialized = false;
+
+let perfQueue = [];
+let perfFlushTimer = null;
+
+export function sendPerformance(payload) {
+  if (!apiKey || !collectorUrl) return;
+
+  perfQueue.push(payload);
+
+  if (perfQueue.length >= MAX_BATCH_SIZE) {
+    flushPerformance();
+  } else if (!perfFlushTimer) {
+    perfFlushTimer = setTimeout(flushPerformance, FLUSH_INTERVAL);
+  }
+}
+
+async function flushPerformance() {
+  if (perfFlushTimer) {
+    clearTimeout(perfFlushTimer);
+    perfFlushTimer = null;
+  }
+  
+  if (perfQueue.length === 0) return;
+
+  const batch = [...perfQueue];
+  perfQueue = [];
+
+  try {
+    await fetch(`${collectorUrl}/report/performance`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey
+      },
+      body: JSON.stringify(batch),
+      keepalive: true
+    });
+  } catch (err) {
+    console.warn("⚠️ BugTrace: Performance batch send failed");
+  }
+}
 
 export function setConfig(config) {
   apiKey = config.apiKey;
@@ -29,6 +72,10 @@ const COOLDOWN_MS = 5000;
  * Public entry point for sending errors.
  */
 export function sendError(payload) {
+  if (!payload.breadcrumbs) {
+    payload.breadcrumbs = getBreadcrumbs();
+  }
+
   // 💡 P1 FIX: Added Local Cooldown / Deduplication
   // Prevents spamming the server if the same error happens in a loop
   const errorKey = `${payload.error?.message}-${payload.error?.stack}`;

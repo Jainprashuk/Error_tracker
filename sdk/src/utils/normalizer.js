@@ -1,3 +1,5 @@
+import { getBreadcrumbs } from "../breadcrumbs.js";
+
 export function createBasePayload(overrides = {}) {
   return {
     event_type: null,
@@ -34,6 +36,8 @@ export function createBasePayload(overrides = {}) {
     metadata: {},
 
     screenshot: null,
+    
+    breadcrumbs: getBreadcrumbs(),
 
     ...overrides
   };

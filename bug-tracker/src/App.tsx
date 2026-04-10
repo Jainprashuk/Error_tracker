@@ -12,6 +12,7 @@ import { ProjectPage } from './pages/ProjectPage';
 import { ErrorDetailPage } from './pages/ErrorDetailPage';
 import { TicketsPage } from './pages/TicketsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ProjectPerformancePage } from './pages/ProjectPerformancePage';
 
 import { ClerkSync } from './components/ClerkSync';
 
@@ -142,6 +143,7 @@ export default function App() {
           <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/project/:id" element={<ProjectPage />} />
+            <Route path="/project/:id/performance" element={<ProjectPerformancePage />} />
             <Route path="/error/:fingerprint" element={<ErrorDetailPage />} />
             <Route path="/tickets" element={<TicketsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

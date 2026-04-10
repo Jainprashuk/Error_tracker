@@ -4,6 +4,7 @@ import { setupFetchInterceptor } from "./fetchInterceptor.js";
 import { setConfig, sendError } from "./sender.js";
 import { initPerformanceTracking } from "./performanceTracker.js";
 import { initManualBugReporter } from "./manualBugReporter.js";
+import { initBreadcrumbTracking, addBreadcrumb } from "./breadcrumbs.js";
 import { createBasePayload } from "./utils/normalizer.js";
 
 /**
@@ -46,15 +47,25 @@ export function initBugTracker(config = {}) {
 
   setConfig({ apiKey, collectorUrl });
 
+  /* ---------- BREADCRUMB TRACKING ---------- */
+  initBreadcrumbTracking();
+
   /* ---------- ERROR TRACKING ---------- */
   initGlobalErrorTracking({
     project: config.project || true,
     takeScreenshots: mergedFeatures.captureScreenshots.consoleErrors
   });
-  setupFetchInterceptor(mergedFeatures.captureScreenshots.fetchErrors);
+  setupFetchInterceptor(
+    mergedFeatures.captureScreenshots.fetchErrors,
+    mergedFeatures.capturePerformance
+  );
 
   if (axios) {
-    setupAxiosInterceptor(axios, mergedFeatures.captureScreenshots.axiosErrors);
+    setupAxiosInterceptor(
+      axios,
+      mergedFeatures.captureScreenshots.axiosErrors,
+      mergedFeatures.capturePerformance
+    );
   }
 
   /* ---------- PERFORMANCE TRACKING ---------- */

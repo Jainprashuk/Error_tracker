@@ -14,6 +14,7 @@ from app.routes.auth_routes import router as auth_router
 from app.routes.ticket_routes import router as ticket_router
 from app.routes.integration_routes import router as integration_router
 from app.routes.alert_routes import router as alert_router
+from app.routes.performance_routes import router as performance_router
 
 
 # Configure structured logging
@@ -80,6 +81,7 @@ app.include_router(auth_router)
 app.include_router(ticket_router)
 app.include_router(integration_router)
 app.include_router(alert_router)
+app.include_router(performance_router)
 
 @app.get("/")
 def root():

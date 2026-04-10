@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X } from 'lucide-react';
+import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X, Activity } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton } from '../components/ui';
 import type { Error as ErrorType, Project } from '../types';
@@ -337,9 +337,18 @@ export const ProjectPage: React.FC = () => {
               </div>
               <h1 className="text-2xl font-bold gradient-text truncate">{project.name}</h1>
             </div>
-            <Badge variant={errors.length === 0 ? 'success' : 'danger'} dot>
-              {errors.length} {errors.length === 1 ? 'issue' : 'issues'}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Badge variant={errors.length === 0 ? 'success' : 'danger'} dot>
+                {errors.length} {errors.length === 1 ? 'issue' : 'issues'}
+              </Badge>
+              <button
+                onClick={() => navigate(`/project/${project.id}/performance`)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/40 transition-all duration-200"
+              >
+                <Activity size={14} />
+                Web Vitals
+              </button>
+            </div>
           </div>
 
           {/* ── Stats row ── */}
