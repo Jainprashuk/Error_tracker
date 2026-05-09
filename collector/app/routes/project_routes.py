@@ -26,9 +26,18 @@ async def create_project(
     }
 
     result = await projects_collection.insert_one(data)
+    project_id = str(result.inserted_id)
+
+    # Automatically add the creator as an admin of the project
+    await project_members_collection.insert_one({
+        "project_id": project_id,
+        "user_id": org_membership["user_id"],
+        "role": "admin",
+        "created_at": datetime.utcnow()
+    })
 
     return {
-        "project_id": str(result.inserted_id),
+        "project_id": project_id,
         "api_key": api_key,
         "org_id": x_org_id
     }
@@ -44,16 +53,11 @@ async def list_org_projects(
     # 1. Base query: must belong to the org
     query = {"org_id": ObjectId(x_org_id)}
 
-    # Cache assigned projects for quick role lookup
+    # Cache assigned projects for quick role lookup (to determine user's role within each project)
     role_map = {}
-    if user_role != "admin":
-        assigned_docs = await project_members_collection.find({"user_id": user_id}).to_list(length=100)
-        assigned_ids = []
-        for doc in assigned_docs:
-            pid = str(doc["project_id"])
-            role_map[pid] = doc.get("role", "viewer")
-            assigned_ids.append(ObjectId(doc["project_id"]))
-        query["_id"] = {"$in": assigned_ids}
+    assigned_docs = await project_members_collection.find({"user_id": user_id}).to_list(length=100)
+    for doc in assigned_docs:
+        role_map[str(doc["project_id"])] = doc.get("role", "viewer")
 
     projects = await projects_collection.find(query).to_list(length=100)
 
