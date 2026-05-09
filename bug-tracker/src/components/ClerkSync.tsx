@@ -59,7 +59,7 @@ export const ClerkSync: React.FC = () => {
                         const orgsRes = await fetch(`${apiUrl}/orgs`, {
                             headers: { 'Authorization': `Bearer ${data.token}` }
                         });
-                        
+
                         let orgs = [];
                         if (orgsRes.ok) {
                             orgs = await orgsRes.json();
@@ -67,9 +67,9 @@ export const ClerkSync: React.FC = () => {
                         } else {
                             console.error("[ClerkSync] Failed to fetch orgs:", orgsRes.status);
                         }
-                        
+
                         setOrganizations(orgs);
-                        
+
                         if (!currentOrgId && orgs.length > 0) {
                             setCurrentOrgId(orgs[0]._id);
                         }
