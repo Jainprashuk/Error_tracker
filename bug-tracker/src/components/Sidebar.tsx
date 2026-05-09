@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LogOut, Zap, Bug, LayoutDashboard, Ticket, Settings, Menu, X, Users, Shield } from 'lucide-react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
@@ -13,6 +13,8 @@ interface NavItem {
 }
 
 import { useClerk } from '@clerk/clerk-react';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
@@ -61,6 +63,26 @@ export const Sidebar: React.FC = () => {
     location.pathname === href || location.pathname.startsWith(href + '/');
 
   const [isOpen, setIsOpen] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<'healthy' | 'unhealthy' | 'loading'>('loading');
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/health`);
+        if (res.ok) {
+          const data = await res.json();
+          setSystemStatus(data.status === 'healthy' ? 'healthy' : 'unhealthy');
+        } else {
+          setSystemStatus('unhealthy');
+        }
+      } catch (err) {
+        setSystemStatus('unhealthy');
+      }
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <>
@@ -95,7 +117,7 @@ export const Sidebar: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         {/* ── Organization Switcher ── */}
         {user && <OrgSwitcher />}
 
@@ -165,13 +187,25 @@ export const Sidebar: React.FC = () => {
         </nav>
 
         {/* ── Status Indicator ── */}
-        <div className="mx-3 mb-3 px-3.5 py-2.5 bg-emerald-500/8 border border-emerald-500/20 rounded-xl">
+        <div className={`mx-3 mb-3 px-3.5 py-2.5 rounded-xl border transition-all duration-300 ${systemStatus === 'healthy'
+            ? 'bg-emerald-500/8 border-emerald-500/20 shadow-[0_0_15px_-5px_rgba(52,211,153,0.1)]'
+            : systemStatus === 'unhealthy'
+              ? 'bg-red-500/8 border-red-500/20 shadow-[0_0_15px_-5px_rgba(248,113,113,0.1)]'
+              : 'bg-slate-800/40 border-slate-700/30'
+          }`}>
           <div className="flex items-center gap-2">
             <div className="relative">
-              <div className="w-2 h-2 bg-emerald-400 rounded-full" />
-              <div className="absolute inset-0 w-2 h-2 bg-emerald-400 rounded-full animate-ping opacity-60" />
+              <div className={`w-2 h-2 rounded-full transition-colors duration-300 ${systemStatus === 'healthy' ? 'bg-emerald-400' : systemStatus === 'unhealthy' ? 'bg-red-400' : 'bg-slate-500'
+                }`} />
+              {systemStatus !== 'loading' && (
+                <div className={`absolute inset-0 w-2 h-2 rounded-full animate-ping opacity-60 ${systemStatus === 'healthy' ? 'bg-emerald-400' : 'bg-red-400'
+                  }`} />
+              )}
             </div>
-            <span className="text-xs text-emerald-400 font-medium">All systems operational</span>
+            <span className={`text-[11px] font-medium transition-colors duration-300 ${systemStatus === 'healthy' ? 'text-emerald-400' : systemStatus === 'unhealthy' ? 'text-red-400' : 'text-slate-500'
+              }`}>
+              {systemStatus === 'healthy' ? 'All systems operational' : systemStatus === 'unhealthy' ? 'System issues detected' : 'Checking status...'}
+            </span>
           </div>
         </div>
 
