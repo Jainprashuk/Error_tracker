@@ -4,6 +4,7 @@ import { Eye, EyeOff, Settings, Link as LinkIcon, Save, RefreshCw, Layers, Bell,
 import toast from "react-hot-toast";
 import { Card, Button, Input, Badge } from "../components/ui";
 import { encrypt, decrypt } from "../utils/crypto";
+import { useAuthStore } from "../store/auth";
 
 export const SettingsPage: React.FC = () => {
   const API = import.meta.env.VITE_API_BASE_URL;
@@ -22,36 +23,44 @@ export const SettingsPage: React.FC = () => {
   const [alertLoading, setAlertLoading] = useState(false);
   const [newEmail, setNewEmail] = useState("");
 
+  const { currentOrgId } = useAuthStore();
+
   // 🔥 Fetch projects
   useEffect(() => {
     const fetchProjects = async () => {
+      if (!currentOrgId) return;
       const session = JSON.parse(localStorage.getItem("session") || "{}");
 
-      const res = await fetch(`${API}/projects/${session.user.id}`, {
+      const res = await fetch(`${API}/projects`, {
         headers: {
           Authorization: `Bearer ${session.token}`,
+          'x-org-id': currentOrgId
         },
       });
 
       const data = await res.json();
-      setProjects(data);
+      setProjects(Array.isArray(data) ? data : []);
 
       if (data.length) setSelectedProjectId(data[0]._id);
     };
 
     fetchProjects();
-  }, []);
+  }, [currentOrgId]);
 
   // 🔥 Load integration config when project changes
   useEffect(() => {
     if (!selectedProjectId) return;
 
     const fetchConfig = async () => {
+      const { currentOrgId } = useAuthStore.getState();
+      if (!currentOrgId) return;
+      
       const session = JSON.parse(localStorage.getItem("session") || "{}");
 
-      const res = await fetch(`${API}/projects/${session.user.id}`, {
+      const res = await fetch(`${API}/projects`, {
         headers: {
           Authorization: `Bearer ${session.token}`,
+          'x-org-id': currentOrgId
         },
       });
 

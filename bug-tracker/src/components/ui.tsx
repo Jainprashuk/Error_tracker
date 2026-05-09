@@ -323,3 +323,40 @@ export const PageContent: React.FC<PageContentProps> = ({ children, className = 
     </div>
   </div>
 );
+// ─── DropdownMenu ────────────────────────────────────────────────
+import * as ReactDropdown from "@radix-ui/react-dropdown-menu";
+
+export const DropdownMenu = ReactDropdown.Root;
+export const DropdownMenuTrigger = ReactDropdown.Trigger;
+
+export const DropdownMenuContent: React.FC<ReactDropdown.DropdownMenuContentProps> = ({ children, className = "", ...props }) => (
+  <ReactDropdown.Portal>
+    <ReactDropdown.Content
+      className={`z-50 min-w-[8rem] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 p-1 text-slate-300 shadow-2xl animate-in fade-in zoom-in-95 duration-100 ${className}`}
+      {...props}
+    >
+      {children}
+    </ReactDropdown.Content>
+  </ReactDropdown.Portal>
+);
+
+export const DropdownMenuItem: React.FC<ReactDropdown.DropdownMenuItemProps> = ({ className = "", ...props }) => (
+  <ReactDropdown.Item
+    className={`relative flex cursor-default select-none items-center rounded-lg px-2 py-1.5 text-sm outline-none transition-colors focus:bg-slate-800 focus:text-slate-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 ${className}`}
+    {...props}
+  />
+);
+
+export const DropdownMenuLabel: React.FC<ReactDropdown.DropdownMenuLabelProps> = ({ className = "", ...props }) => (
+  <ReactDropdown.Label
+    className={`px-2 py-1.5 text-xs font-semibold uppercase tracking-widest text-slate-500 ${className}`}
+    {...props}
+  />
+);
+
+export const DropdownMenuSeparator: React.FC<ReactDropdown.DropdownMenuSeparatorProps> = ({ className = "", ...props }) => (
+  <ReactDropdown.Separator
+    className={`-mx-1 my-1 h-px bg-slate-800 ${className}`}
+    {...props}
+  />
+);

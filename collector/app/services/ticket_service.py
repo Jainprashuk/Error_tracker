@@ -26,11 +26,9 @@ async def ParseError(payload, project_id):
     screenshot_url = None
     event_type = payload.get("event_type")
 
-    # 📸 Screenshot upload (Still sync but in BackgroundTask thread so okay for now,
-    # though it should eventually be async boto3/httpx)
+    # 📸 Screenshot upload
     try:
         if payload.get("screenshot"):
-            # This is sync, but BackgroundTasks runs it in a threadpool
             screenshot_url = upload_screenshot(payload["screenshot"])
     except Exception:
         screenshot_url = None
@@ -71,17 +69,16 @@ async def ParseError(payload, project_id):
     if screenshot_url:
         update_data["screenshot_url"] = screenshot_url
         
-    # 💎 P1 FIX: Store individual event occurrence for historical analysis
+    # 💎 P1 FIX: Store individual event occurrence 
     await events_collection.insert_one({
         "project_id": project_id,
         "fingerprint": fingerprint,
         "payload": payload,
         "screenshot_url": screenshot_url,
-        "created_at": datetime.utcnow() # Trigger for TTL 30-day purge
+        "created_at": datetime.utcnow()
     })
 
     if existing:
-        # 💡 P1: Await DB update
         await errors_collection.update_one(
             {
                 "project_id": project_id,
@@ -92,7 +89,6 @@ async def ParseError(payload, project_id):
                 "$set": update_data
             }
         )
-        # Re-fetch existing to get updated count for alert check
         updated_error = await errors_collection.find_one({"fingerprint": fingerprint})
     else:
         new_error = {
@@ -135,13 +131,9 @@ async def ParseError(payload, project_id):
             success = await send_email_alert(recipients, email_payload)
             
             if success:
-                # 💡 P1: Await status update
                 await update_alert_status(fingerprint, updated_error.get("occurrences", 1))
-                # 💡 P1: Await logging
                 await log_alert(str(project_id), fingerprint, alert_type, f"Sent alert successfully to {len(recipients)} recipients")
             else:
-                # 💡 P1 FIX: Email Outbox Pattern
-                # If provider is down, save to pending_alerts for retry
                 await pending_alerts_collection.insert_one({
                     "projectId": ObjectId(project_id),
                     "fingerprint": fingerprint,
@@ -152,7 +144,5 @@ async def ParseError(payload, project_id):
                 })
                 logger.error("email_delivery_failed_queued", project_id=str(project_id), fingerprint=fingerprint)
                 await log_alert(str(project_id), fingerprint, "PENDING", "Email provider failed. Alert queued for retry.")
-
-                
     except Exception as e:
         logger.error("alerting_system_failure", project_id=str(project_id), error=str(e))

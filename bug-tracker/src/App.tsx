@@ -8,11 +8,13 @@ import { LoginPage } from './pages/LoginPage';
 import { DocsPage } from './pages/DocsPage';
 import { DashboardLayout } from './components/DashboardLayout';
 import { DashboardPage } from './pages/DashboardPage';
+import { MembersPage } from './pages/MembersPage';
 import { ProjectPage } from './pages/ProjectPage';
 import { ErrorDetailPage } from './pages/ErrorDetailPage';
 import { TicketsPage } from './pages/TicketsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ProjectPerformancePage } from './pages/ProjectPerformancePage';
+import { SuperAdminPage } from './pages/SuperAdminPage';
 
 import { ClerkSync } from './components/ClerkSync';
 
@@ -142,11 +144,13 @@ export default function App() {
           <Route path="/docs" element={<DocsPage />} />
           <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/members" element={<MembersPage />} />
             <Route path="/project/:id" element={<ProjectPage />} />
             <Route path="/project/:id/performance" element={<ProjectPerformancePage />} />
             <Route path="/error/:fingerprint" element={<ErrorDetailPage />} />
             <Route path="/tickets" element={<TicketsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/superadmin" element={<SuperAdminPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

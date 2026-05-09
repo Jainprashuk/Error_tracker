@@ -7,9 +7,10 @@ export interface Project {
   name: string;
   apiKey: string;
   createdAt: string;
-  userId: string;
+  orgId: string;
   errorCount: number;
   lastSeen: string | null;
+  my_project_role?: string;
 }
 
 export interface Error {

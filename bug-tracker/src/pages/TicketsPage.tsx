@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAuthStore } from '../store/auth';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Skeleton, Badge } from '../components/ui';
 import { ExternalLink } from 'lucide-react';
@@ -18,20 +19,29 @@ export const TicketsPage: React.FC = () => {
   const fetchTickets = async () => {
     setIsLoading(true);
     try {
+      const { currentOrgId } = useAuthStore.getState();
       const session = localStorage.getItem('session');
       const token = session ? JSON.parse(session).token : null;
-      const user = session ? JSON.parse(session).user : null;
-      if (!token || !user || !user.id) throw new Error('Not authenticated');
-      // Fetch all projects for user
-      const projectsRes = await fetch(`${API_BASE_URL}/projects/${user.id}`, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      if (!token || !currentOrgId) throw new Error('Not authenticated');
+
+      // Fetch all projects for org
+      const projectsRes = await fetch(`${API_BASE_URL}/projects`, {
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          'Content-Type': 'application/json',
+          'x-org-id': currentOrgId
+        },
       });
       if (!projectsRes.ok) throw new Error('Failed to load projects');
       const projects = await projectsRes.json();
       let allTickets: any[] = [];
       for (const project of projects) {
-        const ticketsRes = await fetch(`${API_BASE_URL}/projects/${project._id}/tickets`, {
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        const ticketsRes = await fetch(`${API_BASE_URL}/projects/${project.id || project._id}/tickets`, {
+          headers: { 
+            Authorization: `Bearer ${token}`, 
+            'Content-Type': 'application/json',
+            'x-org-id': currentOrgId
+          },
         });
         if (ticketsRes.ok) {
           const projectTickets = await ticketsRes.json();

@@ -1,15 +1,20 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Header
 from app.services.db import errors_collection
 from app.services.openproject_service import create_openproject_ticket
 import os
 from bson import ObjectId
 from app.services.db import projects_collection
+from app.middleware.org_middleware import verify_org_membership
 
-router = APIRouter()
+router = APIRouter(tags=["Tickets"])
 
 
 @router.post("/tickets/openproject/{fingerprint}")
-async def create_ticket_from_error(fingerprint: str):
+async def create_ticket_from_error(
+    fingerprint: str,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(allowed_roles=["admin"]))
+):
 
     # 💡 P1: Await async find
     error = await errors_collection.find_one({"fingerprint": fingerprint})
@@ -21,10 +26,10 @@ async def create_ticket_from_error(fingerprint: str):
         raise HTTPException(status_code=400, detail="Ticket already generated")
 
     project_id = error.get("project_id")
-    project = await projects_collection.find_one({"_id": project_id})
+    project = await projects_collection.find_one({"_id": project_id, "org_id": ObjectId(x_org_id)})
 
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise HTTPException(status_code=404, detail="Project not found in this organization")
 
     op_config = project.get("integrations", {}).get("openproject")
 
@@ -57,7 +62,11 @@ async def create_ticket_from_error(fingerprint: str):
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.get("/projects/{project_id}/tickets")
-async def get_project_tickets(project_id: str):
+async def get_project_tickets(
+    project_id: str,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(allowed_roles=["admin", "dev", "viewer"]))
+):
 
     # 💡 P1: Await async find + to_list
     tickets = await errors_collection.find(
