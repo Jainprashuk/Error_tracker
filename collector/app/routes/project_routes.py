@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel
 from datetime import datetime
 from app.models.project_model import CreateProject
 from app.services.db import db, projects_collection, project_members_collection, errors_collection, events_collection, performance_collection, alerts_config_collection, alerts_logs_collection
@@ -97,6 +98,33 @@ async def list_org_projects(
             continue
 
     return sanitized_projects
+
+class UpdateProjectRequest(BaseModel):
+    name: str
+
+@router.patch("/projects/{project_id}")
+async def update_project(
+    project_id: str,
+    request: UpdateProjectRequest,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_EDIT"))
+):
+    """
+    Updates project metadata. Currently supports renaming.
+    Restricted to organization managers with PROJECT_EDIT capability.
+    """
+    # 1. Verify project belongs to org
+    project = await projects_collection.find_one({"_id": ObjectId(project_id), "org_id": ObjectId(x_org_id)})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found in this organization.")
+
+    # 2. Update
+    await projects_collection.update_one(
+        {"_id": ObjectId(project_id)},
+        {"$set": {"name": request.name}}
+    )
+
+    return {"message": "Project updated successfully", "name": request.name}
 
 @router.delete("/projects/{project_id}")
 async def delete_project(

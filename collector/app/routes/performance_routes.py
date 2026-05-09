@@ -4,7 +4,8 @@ Completely separate from the error pipeline — no fingerprinting,
 no alerts, no tickets. Just raw perf telemetry grouped by project & route.
 """
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends, Header
+from app.middleware.org_middleware import verify_org_membership
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List, Union
 from app.services.db import performance_collection, projects_collection
@@ -91,7 +92,12 @@ async def ingest_performance(
 # ─── Query: project-level summary ───────────────────────────────────────────
 
 @router.get("/projects/{project_id}/performance")
-async def get_project_performance(project_id: str, days: int = 7):
+async def get_project_performance(
+    project_id: str, 
+    days: int = 7,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="PERFORMANCE_VIEW"))
+):
     """
     Returns per-route performance averages for a project over the last N days.
     Response shape:
@@ -198,7 +204,9 @@ async def get_project_performance(project_id: str, days: int = 7):
 async def get_route_performance_timeseries(
     project_id: str,
     route: str = "/",
-    days: int = 7
+    days: int = 7,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="PERFORMANCE_VIEW"))
 ):
     """
     Returns raw time-series data for a specific route.

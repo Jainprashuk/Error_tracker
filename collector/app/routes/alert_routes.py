@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
+from app.middleware.org_middleware import verify_org_membership
 from typing import Dict, Any
 from app.services.alert_service import get_project_alert_config, alerts_config_collection, alerts_logs_collection
 from app.models.alert_model import AlertConfigSchema
@@ -8,7 +9,11 @@ from datetime import datetime
 router = APIRouter()
 
 @router.get("/projects/{project_id}/alert-config")
-async def get_alert_config_endpoint(project_id: str):
+async def get_alert_config_endpoint(
+    project_id: str,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="ALERT_VIEW"))
+):
     try:
         config = await get_project_alert_config(project_id)
         print(config , "fetched config")
@@ -17,7 +22,12 @@ async def get_alert_config_endpoint(project_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/projects/{project_id}/alert-config")
-async def update_alert_config(project_id: str, payload: AlertConfigSchema):
+async def update_alert_config(
+    project_id: str, 
+    payload: AlertConfigSchema,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="ALERT_MANAGE"))
+):
     try:
         updated_data = payload.model_dump()
         updated_data["projectId"] = ObjectId(project_id)
@@ -34,7 +44,11 @@ async def update_alert_config(project_id: str, payload: AlertConfigSchema):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/projects/{project_id}/alerts/logs")
-async def get_alert_logs(project_id: str):
+async def get_alert_logs(
+    project_id: str,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="ALERT_VIEW"))
+):
     try:
         # 💡 P1: Await async find + to_list
         logs = await alerts_logs_collection.find({"projectId": ObjectId(project_id)}).sort("createdAt", -1).to_list(length=50)

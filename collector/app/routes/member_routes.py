@@ -49,7 +49,7 @@ async def list_org_members(
 async def update_member_role(
     request: ChangeMemberRoleRequest,
     x_org_id: str = Header(...),
-    org_membership: dict = Depends(verify_org_membership(required_permission="ORG_MANAGE"))
+    org_membership: dict = Depends(verify_org_membership(required_permission="ROLE_CHANGE"))
 ):
     """Update a member's role within the organization."""
     # Prevent users from changing their own role (avoiding accidental lockout)
@@ -263,7 +263,7 @@ async def remove_project_member(
 async def remove_org_member(
     user_id: str,
     x_org_id: str = Header(...),
-    org_membership: dict = Depends(verify_org_membership(required_permission="ORG_MANAGE"))
+    org_membership: dict = Depends(verify_org_membership(required_permission="MEMBER_REMOVE"))
 ):
     """Remove a member from the organization."""
     if user_id == org_membership["user_id"]:

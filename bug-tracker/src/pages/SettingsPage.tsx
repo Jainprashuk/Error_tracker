@@ -23,7 +23,18 @@ export const SettingsPage: React.FC = () => {
   const [alertLoading, setAlertLoading] = useState(false);
   const [newEmail, setNewEmail] = useState("");
 
-  const { currentOrgId } = useAuthStore();
+  const { currentOrgId, organizations } = useAuthStore();
+  const currentOrg = organizations.find(o => o._id === currentOrgId);
+
+  const hasPermission = (permission: string) => {
+    if (!currentOrg) return false;
+    const perms = (currentOrg as any).my_permissions || [];
+    return perms.includes('*') || perms.includes(permission);
+  };
+
+  const canManageIntegrations = hasPermission('INTEGRATIONS_MANAGE');
+  const canViewAlerts = hasPermission('ALERT_VIEW');
+  const canManageAlerts = hasPermission('ALERT_MANAGE');
 
   // 🔥 Fetch projects
   useEffect(() => {
@@ -87,7 +98,10 @@ export const SettingsPage: React.FC = () => {
       const session = JSON.parse(localStorage.getItem("session") || "{}");
       try {
         const res = await fetch(`${API}/projects/${selectedProjectId}/alert-config`, {
-          headers: { Authorization: `Bearer ${session.token}` },
+          headers: { 
+            Authorization: `Bearer ${session.token}`,
+            'x-org-id': currentOrgId || ''
+          },
         });
 
         if (!res.ok) {
@@ -107,8 +121,12 @@ export const SettingsPage: React.FC = () => {
       }
     };
 
-    fetchAlertConfig();
-  }, [selectedProjectId]);
+    if (canViewAlerts) {
+      fetchAlertConfig();
+    } else {
+      setAlertConfig(null);
+    }
+  }, [selectedProjectId, canViewAlerts]);
 
   // 🔥 Test connection
   const handleTest = async () => {
@@ -116,10 +134,15 @@ export const SettingsPage: React.FC = () => {
     setStatus("idle");
 
     try {
+      const { currentOrgId } = useAuthStore.getState();
+      const session = JSON.parse(localStorage.getItem("session") || "{}");
+
       const res = await fetch(`${API}/integrations/openproject/test`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.token}`,
+          "x-org-id": currentOrgId || ''
         },
         body: JSON.stringify({
           base_url: baseUrl,
@@ -163,6 +186,7 @@ export const SettingsPage: React.FC = () => {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.token}`,
+            "x-org-id": currentOrgId || ''
           },
           body: JSON.stringify({
             base_url: baseUrl,
@@ -308,68 +332,82 @@ export const SettingsPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
-                  <div>
-                    <label className="text-sm font-medium text-slate-400 mb-1.5 block">Base URL</label>
-                    <Input
-                      value={baseUrl}
-                      onChange={(e) => setBaseUrl(e.target.value)}
-                      placeholder="https://company.openproject.com"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-slate-400 mb-1.5 block">API Key</label>
-                    <div className="relative">
-                      <Input
-                        type={showApiKey ? "text" : "password"}
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        placeholder="••••••••••••••"
-                        className="pr-10 font-mono text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        className="absolute right-3 top-2.5 text-slate-400 hover:text-white transition-colors"
-                      >
-                        {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
+                  {!canManageIntegrations && (
+                    <div className="p-4 bg-slate-900/60 border border-slate-700/50 rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                        <Layers size={14} className="text-orange-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-white">View Only</p>
+                        <p className="text-[10px] text-slate-400">You don't have permission to modify integrations.</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div>
-                    <label className="text-sm font-medium text-slate-400 mb-1.5 block">OpenProject Project ID</label>
-                    <Input
-                      type="number"
-                      value={projectId}
-                      onChange={(e) => setProjectId(e.target.value)}
-                      placeholder="e.g. 1"
-                    />
-                  </div>
+                  <div className={`space-y-6 ${!canManageIntegrations ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div>
+                      <label className="text-sm font-medium text-slate-400 mb-1.5 block">Base URL</label>
+                      <Input
+                        value={baseUrl}
+                        onChange={(e) => setBaseUrl(e.target.value)}
+                        placeholder="https://company.openproject.com"
+                      />
+                    </div>
 
-                  <div className="flex items-center gap-4 pt-4 border-t border-slate-700/40">
-                    <Button
-                      variant="secondary"
-                      onClick={handleTest}
-                      disabled={loading}
-                      className="flex-1"
-                    >
-                      {loading ? (
-                        <RefreshCw className="animate-spin text-slate-400" size={16} />
-                      ) : (
-                        <RefreshCw size={16} />
-                      )}
-                      {loading ? "Testing..." : "Test Connection"}
-                    </Button>
+                    <div>
+                      <label className="text-sm font-medium text-slate-400 mb-1.5 block">API Key</label>
+                      <div className="relative">
+                        <Input
+                          type={showApiKey ? "text" : "password"}
+                          value={apiKey}
+                          onChange={(e) => setApiKey(e.target.value)}
+                          placeholder="••••••••••••••"
+                          className="pr-10 font-mono text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          className="absolute right-3 top-2.5 text-slate-400 hover:text-white transition-colors"
+                        >
+                          {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
 
-                    <Button
-                      variant="primary"
-                      onClick={handleSave}
-                      className="flex-1"
-                    >
-                      <Save size={16} />
-                      Save Integration
-                    </Button>
+                    <div>
+                      <label className="text-sm font-medium text-slate-400 mb-1.5 block">OpenProject Project ID</label>
+                      <Input
+                        type="number"
+                        value={projectId}
+                        onChange={(e) => setProjectId(e.target.value)}
+                        placeholder="e.g. 1"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-4 pt-4 border-t border-slate-700/40">
+                      <Button
+                        variant="secondary"
+                        onClick={handleTest}
+                        disabled={loading}
+                        className="flex-1"
+                      >
+                        {loading ? (
+                          <RefreshCw className="animate-spin text-slate-400" size={16} />
+                        ) : (
+                          <RefreshCw size={16} />
+                        )}
+                        {loading ? "Testing..." : "Test Connection"}
+                      </Button>
+
+                      <Button
+                        variant="primary"
+                        onClick={handleSave}
+                        className="flex-1"
+                      >
+                        <Save size={16} />
+                        Save Integration
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -385,29 +423,34 @@ export const SettingsPage: React.FC = () => {
                       <Badge variant={alertConfig?.channels?.email?.enabled ? "warning" : "default"} dot>
                         {alertConfig?.channels?.email?.enabled ? "Active" : "Disabled"}
                       </Badge>
-                      <button
-                        onClick={() => setAlertConfig({
-                          ...alertConfig,
-                          channels: {
-                            ...alertConfig.channels,
-                            email: { ...alertConfig.channels.email, enabled: !alertConfig.channels.email.enabled }
-                          }
-                        })}
-                        className={`text-[10px] font-bold px-2 py-1 rounded border transition-all ${alertConfig?.channels?.email?.enabled
-                          ? "bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20"
-                          : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
-                          }`}
-                      >
-                        {alertConfig?.channels?.email?.enabled ? "DISABLE" : "ENABLE"}
-                      </button>
+                      {canManageAlerts && (
+                        <button
+                          onClick={() => setAlertConfig({
+                            ...alertConfig,
+                            channels: {
+                              ...alertConfig.channels,
+                              email: { ...alertConfig.channels.email, enabled: !alertConfig.channels.email.enabled }
+                            }
+                          })}
+                          className={`text-[10px] font-bold px-2 py-1 rounded border transition-all ${alertConfig?.channels?.email?.enabled
+                            ? "bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20"
+                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                            }`}
+                        >
+                          {alertConfig?.channels?.email?.enabled ? "DISABLE" : "ENABLE"}
+                        </button>
+                      )}
                     </div>
                   </div>
 
-                  <div className="space-y-6">
-                    {/* Triggers Section */}
+                  <div className={`space-y-6 ${!canManageAlerts ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {!canManageAlerts && (
+                      <p className="text-[10px] text-amber-500/70 font-medium">Read-only: Missing ALERT_MANAGE capability</p>
+                    )}
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div
-                        onClick={() => alertConfig && setAlertConfig({
+                        onClick={() => canManageAlerts && alertConfig && setAlertConfig({
                           ...alertConfig,
                           triggers: { ...alertConfig?.triggers, newError: !alertConfig?.triggers?.newError }
                         })}
@@ -421,7 +464,7 @@ export const SettingsPage: React.FC = () => {
                       </div>
 
                       <div
-                        onClick={() => alertConfig && setAlertConfig({
+                        onClick={() => canManageAlerts && alertConfig && setAlertConfig({
                           ...alertConfig,
                           triggers: {
                             ...alertConfig?.triggers,
@@ -498,6 +541,7 @@ export const SettingsPage: React.FC = () => {
                         onClick={handleSaveAlerts}
                         isLoading={alertLoading}
                         className="w-full"
+                        disabled={!canManageAlerts}
                       >
                         <Save size={16} />
                         Update Alert Configuration

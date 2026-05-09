@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X, Activity, Users, Lock, Trash2 } from 'lucide-react';
+import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X, Activity, Users, Lock, Trash2, Edit2, Save } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton } from '../components/ui';
 import { useAuthStore } from '../store/auth';
@@ -55,10 +55,11 @@ interface IssueRowProps {
   refetchData?: () => void;
   userRole: string;
   currentOrgId: string | null;
+  canCreateTicket: boolean;
 }
 
 const IssueRow: React.FC<IssueRowProps> = ({
-  error, index, onClick, refetchData, userRole, currentOrgId
+  error, index, onClick, refetchData, userRole, currentOrgId, canCreateTicket
 }) => {
   const [loading, setLoading] = useState(false);
   const isTicketGenerated = error.is_ticket_generated === true;
@@ -69,11 +70,10 @@ const IssueRow: React.FC<IssueRowProps> = ({
   const { label, variant } = getEventTypeMeta(eventType);
   const file = error.location?.file ?? null;
   const line = error.location?.line ?? null;
-
   const handleCreateTicket = async (errItem: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!isAdmin) {
-      toast.error('Only administrators can create tickets');
+    if (!canCreateTicket) {
+      toast.error('Missing capability: TICKET_CREATE');
       return;
     }
     if (isTicketGenerated) {
@@ -244,6 +244,11 @@ export const ProjectPage: React.FC = () => {
   const userRole = project?.my_project_role || currentOrg?.my_role || 'viewer';
   const isAdmin = userRole === 'admin';
   const canDelete = hasPermission('PROJECT_DELETE');
+  const canEdit = hasPermission('PROJECT_EDIT');
+  const canCreateTicket = hasPermission('TICKET_CREATE');
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
 
   useEffect(() => { loadProjectData(); }, [id]);
 
@@ -375,6 +380,40 @@ export const ProjectPage: React.FC = () => {
     }
   };
 
+  const handleRenameProject = async () => {
+    if (!editedName.trim() || editedName === project?.name) {
+      setIsEditingName(false);
+      return;
+    }
+
+    try {
+      const session = localStorage.getItem('session');
+      const token = session ? JSON.parse(session).token : null;
+      const { currentOrgId } = useAuthStore.getState();
+
+      const res = await fetch(`${API_BASE_URL}/projects/${project?.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-org-id': currentOrgId || ''
+        },
+        body: JSON.stringify({ name: editedName })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to rename project');
+      }
+
+      toast.success('Project renamed successfully');
+      setIsEditingName(false);
+      loadProjectData();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
   const copyApiKey = () => {
     if (!project) return;
     navigator.clipboard.writeText(project.apiKey);
@@ -447,7 +486,46 @@ export const ProjectPage: React.FC = () => {
                 <span className="text-xs text-slate-500 font-medium">Projects /</span>
                 <span className="text-xs text-slate-400 font-medium">{project.name}</span>
               </div>
-              <h1 className="text-2xl font-bold gradient-text truncate">{project.name}</h1>
+              {isEditingName ? (
+                <div className="flex items-center gap-2 animate-fade-in">
+                  <input
+                    autoFocus
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleRenameProject()}
+                    onBlur={() => !editedName.trim() && setIsEditingName(false)}
+                    className="bg-slate-900/50 border border-indigo-500/50 rounded-lg px-2 py-1 text-xl font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  />
+                  <button 
+                    onClick={handleRenameProject}
+                    className="p-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white transition-all shadow-lg shadow-indigo-500/20"
+                  >
+                    <Save size={16} />
+                  </button>
+                  <button 
+                    onClick={() => setIsEditingName(false)}
+                    className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 transition-all"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold gradient-text truncate">{project.name}</h1>
+                  {canEdit && (
+                    <button 
+                      onClick={() => {
+                        setEditedName(project.name);
+                        setIsEditingName(true);
+                      }}
+                      className="p-1 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded transition-all"
+                      title="Edit Name"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <Badge variant={errors.length === 0 ? 'success' : 'danger'} dot>
@@ -638,6 +716,7 @@ export const ProjectPage: React.FC = () => {
                           refetchData={loadProjectData}
                           userRole={userRole}
                           currentOrgId={currentOrgId}
+                          canCreateTicket={canCreateTicket}
                         />
                       ))}
                     </tbody>

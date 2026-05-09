@@ -13,7 +13,7 @@ router = APIRouter(tags=["Tickets"])
 async def create_ticket_from_error(
     fingerprint: str,
     x_org_id: str = Header(...),
-    org_membership: dict = Depends(verify_org_membership(allowed_roles=["admin"]))
+    org_membership: dict = Depends(verify_org_membership(required_permission="TICKET_CREATE"))
 ):
 
     # 💡 P1: Await async find

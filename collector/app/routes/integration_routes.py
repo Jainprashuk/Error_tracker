@@ -1,14 +1,20 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Header
 from app.services.db import projects_collection
 from bson import ObjectId
 import httpx
 from app.utils.encryption import encrypt_data
+from app.middleware.org_middleware import verify_org_membership
 
 router = APIRouter()
 
 
 @router.post("/projects/{project_id}/integrations/openproject")
-async def save_openproject_config(project_id: str, config: dict):
+async def save_openproject_config(
+    project_id: str, 
+    config: dict,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="INTEGRATIONS_MANAGE"))
+):
 
     try:
         project_obj_id = ObjectId(project_id)
@@ -45,7 +51,11 @@ async def save_openproject_config(project_id: str, config: dict):
 
 
 @router.post("/integrations/openproject/test")
-async def test_openproject(config: dict):
+async def test_openproject(
+    config: dict,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="INTEGRATIONS_MANAGE"))
+):
 
     # Decrypt if it's coming from FE encrypted
     from app.utils.encryption import decrypt_data
