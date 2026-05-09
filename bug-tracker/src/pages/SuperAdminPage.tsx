@@ -70,6 +70,7 @@ export const SuperAdminPage: React.FC = () => {
   const pageSize = 10;
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   // const [isRefreshingMembers, setIsRefreshingMembers] = useState(false);
 
@@ -125,6 +126,7 @@ export const SuperAdminPage: React.FC = () => {
   };
 
   const fetchAIUsage = async (page: number = 1) => {
+    setIsAiLoading(true);
     try {
       const session = JSON.parse(localStorage.getItem('session') || '{}');
       const params = new URLSearchParams();
@@ -145,6 +147,8 @@ export const SuperAdminPage: React.FC = () => {
       setShowFilters(false);
     } catch (err) {
       toast.error('Failed to load AI consumption data');
+    } finally {
+      setIsAiLoading(false);
     }
   };
 
@@ -436,7 +440,16 @@ export const SuperAdminPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/30">
-              {aiUsage.length === 0 ? (
+              {isAiLoading ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center animate-pulse">
+                      <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Scanning Machine Logs...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : aiUsage.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center opacity-20">
                     <Database size={32} className="mx-auto mb-2" />

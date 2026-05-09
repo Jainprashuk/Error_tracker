@@ -138,8 +138,21 @@ async def project_health_summary(
     project_name = project.get("name", "Unknown") if project else "Unknown"
 
     # Fetch more granular data for better AI insights
-    top_errors = await errors_collection.find({"project_id": p_oid}).sort([("count", -1)]).to_list(length=5)
-    error_signatures = [{"message": e.get("message"), "count": e.get("count"), "last_seen": str(e.get("last_seen"))} for e in top_errors]
+    top_errors = await errors_collection.find({"project_id": p_oid}).sort([("occurrences", -1)]).to_list(length=5)
+    
+    error_signatures = []
+    for e in top_errors:
+        msg = e.get("message")
+        if not msg:
+            # Fallback to latest event if legacy error group lacks 'message' field
+            latest = await events_collection.find_one({"fingerprint": e["fingerprint"]}, sort=[("created_at", -1)])
+            msg = latest.get("payload", {}).get("error", {}).get("message", "Unknown Incident") if latest else "Unknown"
+        
+        error_signatures.append({
+            "message": msg, 
+            "count": e.get("occurrences"), 
+            "last_seen": str(e.get("last_seen"))
+        })
 
     detailed_perf = []
     if performance_docs:
@@ -191,9 +204,14 @@ async def global_executive_summary(
     for p in projects:
         p_oid = p["_id"]
         e_count = await errors_collection.count_documents({"project_id": p_oid})
-        # Get the top error message for this project to give CTO more context
-        top_error = await errors_collection.find_one({"project_id": p_oid}, sort=[("count", -1)])
-        top_msg = top_error.get("message", "None") if top_error else "None"
+        # Get the top error message with fallback for legacy data
+        top_error = await errors_collection.find_one({"project_id": p_oid}, sort=[("occurrences", -1)])
+        top_msg = "None"
+        if top_error:
+            top_msg = top_error.get("message")
+            if not top_msg:
+                latest = await events_collection.find_one({"fingerprint": top_error["fingerprint"]}, sort=[("created_at", -1)])
+                top_msg = latest.get("payload", {}).get("error", {}).get("message", "Unknown") if latest else "None"
         
         org_stats.append({
             "name": p["name"], 

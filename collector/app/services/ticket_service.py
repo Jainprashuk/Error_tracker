@@ -63,7 +63,8 @@ async def ParseError(payload, project_id):
     update_data = {
         "last_seen": datetime.utcnow(),
         "event_type": event_type,
-        "location": location
+        "location": location,
+        "message": message # 💡 P0 FIX: Store the message for high-level summaries
     }
 
     if screenshot_url:
@@ -96,6 +97,7 @@ async def ParseError(payload, project_id):
             "fingerprint": fingerprint,
             "event_type": event_type,
             "location": location,
+            "message": message, # 💡 P0 FIX: Store the message for high-level summaries
             "screenshot_url": screenshot_url,
             "occurrences": 1,
             "first_seen": datetime.utcnow(),
