@@ -15,10 +15,10 @@ import { TicketsPage } from './pages/TicketsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ProjectPerformancePage } from './pages/ProjectPerformancePage';
 import { SuperAdminPage } from './pages/SuperAdminPage';
-
 import { ClerkSync } from './components/ClerkSync';
-
 import { useUser } from '@clerk/clerk-react';
+import { initBugTracker } from 'bug-tracker-sdk'
+import axios from 'axios'
 
 const queryClient = new QueryClient();
 
@@ -37,6 +37,87 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     }
     return () => clearTimeout(timer);
   }, [isSignedIn, user, error]);
+
+  initBugTracker({
+    apiKey: "proj_1f7fd28940620f612ab9a521",
+    axios,
+    features: {
+      captureScreenshots: {
+        fetchErrors: true,
+        axiosErrors: true,
+        consoleErrors: true,
+      },
+      manualBugReport: {
+        captureScreenshot: true,
+        floatingButton: () => {
+          const btn = document.createElement("button");
+          btn.textContent = "💬 Feedback";
+
+          btn.style.position = "fixed";
+          btn.style.bottom = "24px";
+          btn.style.right = "24px";
+          btn.style.zIndex = "9999";
+
+          btn.style.background = "#6366f1";
+          btn.style.color = "white";
+          btn.style.border = "none";
+          btn.style.borderRadius = "999px";
+          btn.style.padding = "10px 20px";
+
+          btn.style.fontSize = "14px";
+          btn.style.fontWeight = "500";
+          btn.style.fontFamily = "system-ui, sans-serif";
+          btn.style.letterSpacing = "0.01em";
+
+          btn.style.cursor = "pointer";
+          btn.style.boxShadow = "0 4px 14px rgba(99, 102, 241, 0.4)";
+          btn.style.transition = "transform 0.15s ease, box-shadow 0.15s ease";
+
+          btn.onmouseenter = () => {
+            btn.style.transform = "translateY(-2px)";
+            btn.style.boxShadow = "0 6px 20px rgba(99, 102, 241, 0.5)";
+          };
+          btn.onmouseleave = () => {
+            btn.style.transform = "translateY(0)";
+            btn.style.boxShadow = "0 4px 14px rgba(99, 102, 241, 0.4)";
+          };
+
+          return btn;
+        },
+
+        modalSchema: {
+          title: "Share your feedback",
+          subtitle: "Bug report, suggestion, or anything on your mind.",
+          fields: [
+            {
+              name: "type",
+              label: "Type",
+              type: "select",
+              options: ["Bug report", "Feature request", "General feedback"],
+              defaultValue: "Bug report",
+            },
+            {
+              name: "description",
+              label: "Description",
+              type: "textarea",
+              placeholder: "What happened? What did you expect instead?",
+              required: true,
+              rows: 5,
+            },
+            {
+              name: "email",
+              label: "Email",
+              type: "text",
+              placeholder: "you@example.com (optional)",
+              required: false,
+            },
+          ],
+          submitLabel: "Send feedback",
+        },
+      },
+      capturePerformance: true,
+    },
+  })
 
   // 1. Wait for everything to load
   if (storeLoading || !clerkLoaded) {
