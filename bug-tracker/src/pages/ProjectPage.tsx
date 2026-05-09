@@ -305,12 +305,51 @@ export const ProjectPage: React.FC = () => {
 
   const handleDeleteProject = async () => {
     if (!project) return;
-    const confirmName = window.prompt(`To delete project "${project.name}", please type the project name below:`);
-    if (confirmName !== project.name) {
-      if (confirmName !== null) toast.error("Project name doesn't match.");
-      return;
-    }
+    
+    toast((t) => (
+      <div className="flex flex-col gap-3 p-1">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+            <Trash2 size={18} className="text-red-500" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-white leading-tight">Delete Project?</p>
+            <p className="text-xs text-slate-400">All telemetry data for <span className="text-slate-200 font-semibold">{project.name}</span> will be permanently erased. This cannot be undone.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <button
+            onClick={async () => {
+              toast.dismiss(t.id);
+              await executeDeletion();
+            }}
+            className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition-colors"
+          >
+            Confirm Delete
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ), {
+        duration: 10000,
+        position: 'top-center',
+        style: {
+            background: '#0f172a',
+            border: '1px solid #1e293b',
+            borderRadius: '16px',
+            padding: '12px',
+            minWidth: '320px'
+        }
+    });
+  };
 
+  const executeDeletion = async () => {
+    if (!project) return;
     try {
       const session = localStorage.getItem('session');
       const token = session ? JSON.parse(session).token : null;
