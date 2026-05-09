@@ -34,7 +34,8 @@ export const GitHubCallbackPage: React.FC = () => {
         );
 
         if (!response.ok) {
-          throw new Error(`GitHub OAuth callback failed: ${response.statusText}`);
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `GitHub OAuth callback failed: ${response.statusText}`);
         }
 
         const data = await response.json();
