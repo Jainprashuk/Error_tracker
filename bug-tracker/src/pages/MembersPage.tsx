@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/auth';
 import toast from 'react-hot-toast';
 
 export const MembersPage: React.FC = () => {
-  const { currentOrgId } = useAuthStore();
+  const { currentOrgId, user } = useAuthStore();
   const [members, setMembers] = useState<any[]>([]);
   const [invitations, setInvitations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +91,60 @@ export const MembersPage: React.FC = () => {
         return <Badge variant="default">{status}</Badge>;
     }
   };
+
+  const handleUpdateRole = async (userId: string, newRole: string) => {
+    try {
+      const session = JSON.parse(localStorage.getItem('session') || '{}');
+      const res = await fetch(`${API_BASE_URL}/members/org/role`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`,
+          'x-org-id': currentOrgId || ''
+        },
+        body: JSON.stringify({ user_id: userId, role: newRole })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to update user role');
+      }
+
+      toast.success('Member role updated');
+      fetchData(); // Refresh to show changes
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to remove ${name} from this organization? This will also remove them from all assigned projects.`)) return;
+    
+    try {
+      const session = JSON.parse(localStorage.getItem('session') || '{}');
+      const res = await fetch(`${API_BASE_URL}/members/org/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.token}`,
+          'x-org-id': currentOrgId || ''
+        }
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to remove member');
+      }
+
+      toast.success('Member removed successfully');
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const myUserId = user?.id;
+  const myRole = members.find(m => m.user_id === myUserId)?.role;
+  const canManage = myRole === 'admin';
 
   return (
     <div className="flex h-screen bg-slate-950 overflow-hidden">
@@ -182,13 +236,42 @@ export const MembersPage: React.FC = () => {
                               <div className="text-sm font-semibold text-white flex items-center gap-2">
                                 {member.name}
                                 {member.role === 'admin' && <Shield size={12} className="text-amber-400" />}
+                                {member.user_id === myUserId && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded uppercase font-bold tracking-tighter">You</span>}
                               </div>
                               <div className="text-xs text-slate-500">{member.email}</div>
                             </div>
                           </div>
-                          <Badge variant={member.role === 'admin' ? 'info' : 'default'}>
-                            {member.role.toUpperCase()}
-                          </Badge>
+                          
+                          <div className="flex items-center gap-3">
+                            {canManage && member.user_id !== myUserId ? (
+                                <>
+                                    <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-0.5">
+                                        {['admin', 'dev', 'viewer'].map(r => (
+                                            <button 
+                                                key={r} 
+                                                onClick={() => handleUpdateRole(member.user_id, r)}
+                                                className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter transition-all ${
+                                                    member.role === r ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
+                                                }`}
+                                            >
+                                                {r}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button 
+                                        onClick={() => handleRemoveMember(member.user_id, member.name)}
+                                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                        title="Remove from organization"
+                                    >
+                                        <XCircle size={16} />
+                                    </button>
+                                </>
+                            ) : (
+                                <Badge variant={member.role === 'admin' ? 'info' : 'default'}>
+                                    {member.role.toUpperCase()}
+                                </Badge>
+                            )}
+                          </div>
                         </div>
                       </Card>
                     ))}

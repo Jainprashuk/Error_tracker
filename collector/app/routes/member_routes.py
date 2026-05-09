@@ -13,6 +13,10 @@ class AddOrgMemberRequest(BaseModel):
     email: str
     role: str = "viewer"  # admin, dev, viewer
 
+class ChangeMemberRoleRequest(BaseModel):
+    user_id: str
+    role: str
+
 class AddProjectMemberRequest(BaseModel):
     user_id: str
     project_id: str
@@ -40,6 +44,27 @@ async def list_org_members(
             })
             
     return enriched_members
+
+@router.post("/org/role")
+async def update_member_role(
+    request: ChangeMemberRoleRequest,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="ORG_MANAGE"))
+):
+    """Update a member's role within the organization."""
+    # Prevent users from changing their own role (avoiding accidental lockout)
+    if request.user_id == org_membership["user_id"]:
+        raise HTTPException(status_code=400, detail="You cannot change your own role.")
+        
+    result = await org_members_collection.update_one(
+        {"org_id": x_org_id, "user_id": request.user_id},
+        {"$set": {"role": request.role, "updated_at": datetime.utcnow()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Member not found in this organization.")
+        
+    return {"message": f"Member role updated to {request.role}."}
 
 @router.post("/org")
 async def add_org_member(
@@ -233,3 +258,27 @@ async def remove_project_member(
     """Unassign a user from a project."""
     await project_members_collection.delete_one({"project_id": project_id, "user_id": user_id})
     return {"message": "User unassigned from project."}
+
+@router.delete("/org/{user_id}")
+async def remove_org_member(
+    user_id: str,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="ORG_MANAGE"))
+):
+    """Remove a member from the organization."""
+    if user_id == org_membership["user_id"]:
+        raise HTTPException(status_code=400, detail="You cannot remove yourself.")
+        
+    # 1. Remove from organization
+    await org_members_collection.delete_one({"org_id": x_org_id, "user_id": user_id})
+    
+    # 2. Cleanup: Remove from all projects in this organization
+    projects = await projects_collection.find({"org_id": ObjectId(x_org_id)}).to_list(length=1000)
+    project_ids = [str(p["_id"]) for p in projects]
+    if project_ids:
+        await project_members_collection.delete_many({
+            "user_id": user_id, 
+            "project_id": {"$in": project_ids}
+        })
+        
+    return {"message": "Member removed from organization and all projects."}
