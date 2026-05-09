@@ -34,6 +34,7 @@ const PERMISSION_GUIDE = [
     { id: 'ORG_MANAGE', label: 'Org Manager', desc: 'Invite/Remove members and update organization-wide settings.' },
     { id: 'PROJECT_VIEW', label: 'Project Viewer', desc: 'Can see the list of projects and their basic metadata.' },
     { id: 'PROJECT_CREATE', label: 'Project Creator', desc: 'Authorize the spawning of new project containers.' },
+    { id: 'PROJECT_DELETE', label: 'Project Deleter', desc: 'Permanently remove a project and all its data.' },
     { id: 'TEAM_MANAGE', label: 'Team Manager', desc: 'Add/Remove users from projects and change project-specific roles.' },
     { id: 'ERROR_VIEW', label: 'Error Viewer', desc: 'Can see error groups, stack traces, and details (telemetry).' },
     { id: 'ERROR_RESOLVE', label: 'Error Resolver', desc: 'Authorize resolving, linking, or deleting error groupings.' },

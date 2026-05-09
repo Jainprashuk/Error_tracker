@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X, Activity, Users, Lock } from 'lucide-react';
+import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X, Activity, Users, Lock, Trash2 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton } from '../components/ui';
 import { useAuthStore } from '../store/auth';
@@ -234,8 +234,16 @@ export const ProjectPage: React.FC = () => {
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const { organizations, currentOrgId } = useAuthStore();
   const currentOrg = organizations.find(o => o._id === currentOrgId);
+  
+  const hasPermission = (permission: string) => {
+    if (!currentOrg) return false;
+    const perms = currentOrg.my_permissions || [];
+    return perms.includes('*') || perms.includes(permission);
+  };
+
   const userRole = project?.my_project_role || currentOrg?.my_role || 'viewer';
   const isAdmin = userRole === 'admin';
+  const canDelete = hasPermission('PROJECT_DELETE');
 
   useEffect(() => { loadProjectData(); }, [id]);
 
@@ -295,12 +303,44 @@ export const ProjectPage: React.FC = () => {
     }
   };
 
-  const copyApiKey = () => {
-    if (project) {
-      navigator.clipboard.writeText(project.apiKey);
-      setCopiedKey(true);
-      setTimeout(() => setCopiedKey(false), 2000);
+  const handleDeleteProject = async () => {
+    if (!project) return;
+    const confirmName = window.prompt(`To delete project "${project.name}", please type the project name below:`);
+    if (confirmName !== project.name) {
+      if (confirmName !== null) toast.error("Project name doesn't match.");
+      return;
     }
+
+    try {
+      const session = localStorage.getItem('session');
+      const token = session ? JSON.parse(session).token : null;
+      const { currentOrgId } = useAuthStore.getState();
+
+      const res = await fetch(`${API_BASE_URL}/projects/${project.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-org-id': currentOrgId || ''
+        }
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to delete project');
+      }
+
+      toast.success('Project deleted successfully');
+      navigate('/dashboard');
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const copyApiKey = () => {
+    if (!project) return;
+    navigator.clipboard.writeText(project.apiKey);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
   };
 
   // Derived stats from errors
@@ -388,6 +428,15 @@ export const ProjectPage: React.FC = () => {
                 <Users size={14} />
                 {isAdmin ? 'Manage Team' : 'View Team'}
               </button>
+              {canDelete && (
+                <button
+                  onClick={handleDeleteProject}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 transition-all duration-200 active:scale-95"
+                  title="Delete Project"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
           </div>
 

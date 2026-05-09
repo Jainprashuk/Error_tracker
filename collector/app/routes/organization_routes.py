@@ -22,16 +22,19 @@ async def list_user_orgs(current_user: dict = Depends(verify_token)):
     # Find org details
     orgs = await organizations_collection.find({"_id": {"$in": org_ids}}).to_list(length=100)
     
+    from app.middleware.org_middleware import get_role_permissions
     response = []
     for org in orgs:
         # Match membership role
         role = next((m["role"] for m in memberships if str(m["org_id"]) == str(org["_id"])), "viewer")
+        permissions = await get_role_permissions(role)
         response.append({
             "_id": str(org["_id"]),
             "name": org["name"],
             "slug": org.get("slug"),
             "logo_url": org.get("logo_url"),
-            "my_role": role
+            "my_role": role,
+            "my_permissions": permissions
         })
         
     return response

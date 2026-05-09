@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, HTTPException
 from datetime import datetime
 from app.models.project_model import CreateProject
-from app.services.db import db, projects_collection, project_members_collection
+from app.services.db import db, projects_collection, project_members_collection, errors_collection, events_collection, performance_collection, alerts_config_collection, alerts_logs_collection
 from app.utils.api_key import generate_api_key
 from bson import ObjectId
 from app.utils.encryption import decrypt_data, encrypt_data
@@ -97,3 +97,31 @@ async def list_org_projects(
             continue
 
     return sanitized_projects
+
+@router.delete("/projects/{project_id}")
+async def delete_project(
+    project_id: str,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_DELETE"))
+):
+    """
+    Permanently deletes a project and all its associated data.
+    Restricted to organization managers with PROJECT_DELETE capability.
+    """
+    # 1. Verify project belongs to org
+    project = await projects_collection.find_one({"_id": ObjectId(project_id), "org_id": ObjectId(x_org_id)})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found in this organization.")
+
+    # 2. Cleanup all associated data
+    await errors_collection.delete_many({"project_id": project_id})
+    await events_collection.delete_many({"project_id": project_id})
+    await performance_collection.delete_many({"project_id": project_id})
+    await project_members_collection.delete_many({"project_id": project_id})
+    await alerts_config_collection.delete_many({"project_id": project_id})
+    await alerts_logs_collection.delete_many({"project_id": project_id})
+
+    # 3. Final: Delete the project meta doc
+    await projects_collection.delete_one({"_id": ObjectId(project_id)})
+
+    return {"message": f"Project '{project.get('name')}' deleted successfully."}
