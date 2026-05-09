@@ -30,7 +30,7 @@ export function initBugTracker(config = {}) {
 
   const {
     apiKey,
-    collectorUrl = "http://localhost:8000", 
+    collectorUrl = "https://bugtracker.jainprashuk.in",
     axios,
     features = {}
   } = config;
