@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X, Activity } from 'lucide-react';
+import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X, Activity, Users, Lock } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton } from '../components/ui';
+import { useAuthStore } from '../store/auth';
 import type { Error as ErrorType, Project } from '../types';
 import toast from 'react-hot-toast';
+import { ProjectTeamModal } from '../components/ProjectTeamModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -51,14 +53,17 @@ interface IssueRowProps {
   index: number;
   onClick: () => void;
   refetchData?: () => void;
+  userRole: string;
+  currentOrgId: string | null;
 }
 
 const IssueRow: React.FC<IssueRowProps> = ({
-  error, index, onClick, refetchData,
+  error, index, onClick, refetchData, userRole, currentOrgId
 }) => {
   const [loading, setLoading] = useState(false);
   const isTicketGenerated = error.is_ticket_generated === true;
   const ticketUrl = error.ticket_url;
+  const isAdmin = userRole === 'admin';
 
   const eventType = (error as any).event_type || error.errorType;
   const { label, variant } = getEventTypeMeta(eventType);
@@ -67,6 +72,10 @@ const IssueRow: React.FC<IssueRowProps> = ({
 
   const handleCreateTicket = async (errItem: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!isAdmin) {
+      toast.error('Only administrators can create tickets');
+      return;
+    }
     if (isTicketGenerated) {
       toast.error('Ticket for this fingerprint is already generated.');
       return;
@@ -76,7 +85,10 @@ const IssueRow: React.FC<IssueRowProps> = ({
     try {
       const sessionStr = localStorage.getItem('session');
       const session = sessionStr ? JSON.parse(sessionStr) : null;
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = { 
+        'Content-Type': 'application/json',
+        'x-org-id': currentOrgId || ''
+      };
       if (session?.token) {
         headers['Authorization'] = `Bearer ${session.token}`;
       }
@@ -175,9 +187,10 @@ const IssueRow: React.FC<IssueRowProps> = ({
             </a>
           ) : (
             <button
-              disabled={loading}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${loading
-                ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+              disabled={loading || !isAdmin}
+              title={!isAdmin ? 'Only admins can create tickets' : 'Generate ticket'}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${loading || !isAdmin
+                ? 'bg-slate-800/50 text-slate-600 border-slate-800 cursor-not-allowed opacity-60'
                 : 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/20 hover:border-blue-500/40'
                 }`}
               onClick={(e) => handleCreateTicket(error, e)}
@@ -186,6 +199,11 @@ const IssueRow: React.FC<IssueRowProps> = ({
                 <>
                   <Clock size={12} className="animate-spin text-slate-500" />
                   Generating...
+                </>
+              ) : !isAdmin ? (
+                <>
+                  <Lock size={12} className="text-slate-600" />
+                  Restricted
                 </>
               ) : (
                 <>
@@ -213,33 +231,47 @@ export const ProjectPage: React.FC = () => {
   const [revealedKey, setRevealedKey] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const { organizations, currentOrgId } = useAuthStore();
+  const currentOrg = organizations.find(o => o._id === currentOrgId);
+  const userRole = project?.my_project_role || currentOrg?.my_role || 'viewer';
+  const isAdmin = userRole === 'admin';
 
   useEffect(() => { loadProjectData(); }, [id]);
 
   const loadProjectData = async () => {
     setIsLoading(true);
     try {
+      const { currentOrgId } = useAuthStore.getState();
       const session = localStorage.getItem('session');
       const token = session ? JSON.parse(session).token : null;
-      if (!token || !id) return;
+      if (!token || !id || !currentOrgId) return;
 
-      const { user } = JSON.parse(session || '{}');
-      const projectsRes = await fetch(`${API_BASE_URL}/projects/${user.id}`, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      // 1. Get project details from the org-scoped projects list
+      const projectsRes = await fetch(`${API_BASE_URL}/projects`, {
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          'Content-Type': 'application/json',
+          'x-org-id': currentOrgId
+        },
       });
       if (!projectsRes.ok) throw new Error('Failed to load projects');
 
       const allProjects = await projectsRes.json();
-      const projectData = (Array.isArray(allProjects) ? allProjects : []).find((p: any) => p._id === id);
+      const projectData = (Array.isArray(allProjects) ? allProjects : []).find((p: any) => (p._id || p.id) === id);
       if (!projectData) throw new Error('Project not found');
 
+      // 2. Get errors for this project (scoped by org header for security)
       const errorsRes = await fetch(`${API_BASE_URL}/projects/${id}/errors`, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          'Content-Type': 'application/json',
+          'x-org-id': currentOrgId
+        },
       });
       if (!errorsRes.ok) throw new Error('Failed to load errors');
 
       const errorsData = await errorsRes.json();
-      // 💡 Handle paginated response { data: [...] } or direct array
       const projectErrors = errorsData.data || (Array.isArray(errorsData) ? errorsData : []);
 
       setProject({
@@ -247,11 +279,12 @@ export const ProjectPage: React.FC = () => {
         name: projectData.name,
         apiKey: projectData.api_key,
         createdAt: projectData.created_at,
-        userId: projectData.user_id,
+        orgId: projectData.org_id,
         errorCount: errorsData.total || projectErrors.length,
         lastSeen: projectErrors.length > 0
           ? (projectErrors[0].last_seen || projectErrors[0].lastSeen)
           : null,
+        my_project_role: projectData.my_project_role
       });
       setErrors(projectErrors);
     } catch (err) {
@@ -348,8 +381,22 @@ export const ProjectPage: React.FC = () => {
                 <Activity size={14} />
                 Web Vitals
               </button>
+              <button
+                onClick={() => setIsTeamModalOpen(true)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/40 transition-all duration-200"
+              >
+                <Users size={14} />
+                {isAdmin ? 'Manage Team' : 'View Team'}
+              </button>
             </div>
           </div>
+
+          <ProjectTeamModal 
+            isOpen={isTeamModalOpen}
+            onClose={() => setIsTeamModalOpen(false)}
+            projectId={project.id}
+            onUpdate={loadProjectData}
+          />
 
           {/* ── Stats row ── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-fade-in-up delay-75">
@@ -501,6 +548,8 @@ export const ProjectPage: React.FC = () => {
                           index={idx}
                           onClick={() => navigate(`/error/${error.fingerprint}`)}
                           refetchData={loadProjectData}
+                          userRole={userRole}
+                          currentOrgId={currentOrgId}
                         />
                       ))}
                     </tbody>

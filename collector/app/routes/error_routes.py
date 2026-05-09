@@ -47,9 +47,18 @@ async def report_error(payload: Union[ErrorPayload, List[ErrorPayload]], backgro
 
 
 
+from app.middleware.org_middleware import verify_org_membership
+from fastapi import Header, Depends
+
 # GET all errors of a project (with pagination)
 @router.get("/projects/{project_id}/errors")
-async def get_project_errors(project_id: str, page: int = 1, limit: int = 50):
+async def get_project_errors(
+    project_id: str, 
+    page: int = 1, 
+    limit: int = 50,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(allowed_roles=["admin", "dev", "viewer"]))
+):
 
     skip = (page - 1) * limit
 
@@ -87,7 +96,11 @@ async def get_project_errors(project_id: str, page: int = 1, limit: int = 50):
 
 # GET error details
 @router.get("/errors/{fingerprint}")
-async def get_error_detail(fingerprint: str):
+async def get_error_detail(
+    fingerprint: str,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(allowed_roles=["admin", "dev", "viewer"]))
+):
     # 💡 P0 FIX: Get the Group metadata
     error = await errors_collection.find_one({"fingerprint": fingerprint})
     if not error:

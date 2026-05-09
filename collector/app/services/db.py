@@ -48,6 +48,13 @@ alerts_logs_collection = db["alert_logs"]
 pending_alerts_collection = db["pending_alerts"] # 🔥 New: For reliable delivery
 performance_collection = db["performance_metrics"]  # 🚀 Dedicated performance stream
 
+# 🏢 Multi-tenant Collections
+organizations_collection = db["organizations"]
+org_members_collection = db["org_members"]
+project_members_collection = db["project_members"]
+org_invitations_collection = db["org_invitations"]
+roles_collection = db["roles"] # 🎭 Dynamic RBAC storage
+
 
 async def init_db():
     """
@@ -85,6 +92,9 @@ async def init_db():
             expireAfterSeconds=90 * 24 * 3600,
             background=True
         )
+        # Index for multi-tenant project lookup
+        await projects_collection.create_index("org_id", background=True)
+
         print("✅ Database indexes verified")
     except Exception as e:
         print(f"⚠️ Error initializing indexes: {e}")

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton, Tabs } from '../components/ui';
+import { useAuthStore } from '../store/auth';
 import type { ErrorDetail } from '../types';
 import toast from 'react-hot-toast';
 
@@ -111,12 +112,17 @@ export const ErrorDetailPage: React.FC = () => {
   const loadErrorDetail = async () => {
     setIsLoading(true);
     try {
+      const { currentOrgId } = useAuthStore.getState();
       const session = localStorage.getItem('session');
       const token = session ? JSON.parse(session).token : null;
-      if (!token || !fingerprint) return;
+      if (!token || !fingerprint || !currentOrgId) return;
 
       const response = await fetch(`${API_BASE_URL}/errors/${fingerprint}`, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          'Content-Type': 'application/json',
+          'x-org-id': currentOrgId
+        },
       });
       if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
 

@@ -7,6 +7,7 @@ import {
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Skeleton, StatCard, EmptyState, Badge } from '../components/ui';
 import { CreateProjectModal } from '../components/CreateProjectModal';
+import { PendingInvites } from '../components/PendingInvites';
 import { useAuthStore } from '../store/auth';
 import type { Project } from '../types';
 import { ResponsiveContainer } from 'recharts';
@@ -146,7 +147,7 @@ const ProjectCard: React.FC<{
 // ── Main page ────────────────────────────────────────────────────
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, currentOrgId } = useAuthStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [allErrors, setAllErrors] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -160,10 +161,16 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     loadProjects();
-  }, [user]);
+  }, [user, currentOrgId]);
 
   const loadProjects = async (silent = false) => {
-    if (!user) return;
+    const { currentOrgId } = useAuthStore.getState();
+    if (!user || !currentOrgId) {
+      setProjects([]);
+      setIsLoading(false);
+      return;
+    }
+    
     if (!silent) setIsLoading(true);
     else setIsRefreshing(true);
 
@@ -172,8 +179,12 @@ export const DashboardPage: React.FC = () => {
       const token = session ? JSON.parse(session).token : null;
       if (!token) return;
 
-      const response = await fetch(`${API_BASE_URL}/projects/${user.id}`, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      const response = await fetch(`${API_BASE_URL}/projects`, {
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          'Content-Type': 'application/json',
+          'x-org-id': currentOrgId
+        },
       });
       if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
 
@@ -183,10 +194,11 @@ export const DashboardPage: React.FC = () => {
           id: p._id || p.id,
           name: p.name,
           apiKey: p.api_key || p.apiKey,
-          userId: p.user_id || p.userId,
+          orgId: p.org_id,
           createdAt: p.created_at || p.createdAt,
           errorCount: 0,
           lastSeen: p.lastSeen || null,
+          my_project_role: p.my_project_role,
         }))
         : [];
 
@@ -196,25 +208,26 @@ export const DashboardPage: React.FC = () => {
         let totalErrorsLast24Hours = 0;
         const now = new Date();
         const last24HoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        const allRawErrors: any[] = []; // collect every error across all projects
+        const allRawErrors: any[] = []; 
 
         const projectsWithCounts = await Promise.all(
           mappedProjects.map(async (project) => {
             try {
               const errorsRes = await fetch(`${API_BASE_URL}/projects/${project.id}/errors`, {
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                headers: { 
+                  Authorization: `Bearer ${token}`, 
+                  'Content-Type': 'application/json',
+                  'x-org-id': currentOrgId
+                },
               });
               if (errorsRes.ok) {
                 const errorsData = await errorsRes.json();
-                // 💡 Handle paginated response { data: [...] } or direct array
                 const errors = errorsData.data || (Array.isArray(errorsData) ? errorsData : []);
-                // Push every raw error so the chart can use real timestamps
                 allRawErrors.push(...errors);
                 errors.forEach((err: any) => {
                   const lastSeen = new Date(err.last_seen || err.lastSeen);
                   if (lastSeen >= last24HoursAgo) totalErrorsLast24Hours++;
                 });
-                // Derive lastSeen from the most recently seen error
                 const latestSeen = errors.reduce((latest: string | null, err: any) => {
                   const ts = err.last_seen || err.lastSeen;
                   if (!ts) return latest;
@@ -222,16 +235,14 @@ export const DashboardPage: React.FC = () => {
                   return new Date(ts) > new Date(latest) ? ts : latest;
                 }, null);
                 return { ...project, errorCount: errorsData.total || errors.length, lastSeen: latestSeen };
-
               }
-            } catch { /* silently ignore per-project error */ }
+            } catch { }
             return project;
           })
         );
 
         setProjects(projectsWithCounts);
         setAllErrors([{ count24h: totalErrorsLast24Hours }]);
-        // Build chart from REAL timestamps, not random numbers
         setChartData(buildProjectChartData(projectsWithCounts));
       }
     } catch (err) {
@@ -283,10 +294,17 @@ export const DashboardPage: React.FC = () => {
       const token = session ? JSON.parse(session).token : null;
       if (!token) throw new Error('Not authenticated');
 
+      const { currentOrgId } = useAuthStore.getState();
+      if (!currentOrgId) throw new Error('No organization selected');
+
       const response = await fetch(`${API_BASE_URL}/projects`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, user_id: user.id }),
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          'Content-Type': 'application/json',
+          'x-org-id': currentOrgId
+        },
+        body: JSON.stringify({ name }),
       });
       if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
 
@@ -369,6 +387,7 @@ export const DashboardPage: React.FC = () => {
 
       <main className="flex-1 h-screen overflow-y-auto md:ml-64">
         <div className="p-4 pt-20 md:p-8 space-y-6 md:space-y-8">
+          <PendingInvites />
 
           {/* ── Header ── */}
           <div className="flex items-start justify-between animate-fade-in-up relative z-50">

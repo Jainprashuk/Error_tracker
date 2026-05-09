@@ -96,13 +96,38 @@ async def sync_clerk_user(request: ClerkSyncRequest):
         
         if not existing_user:
             # First time logging in
-            result = await users_collection.insert_one({
+            user_doc = {
                 "clerk_id": request.clerk_id,
                 "email": email,
                 "name": name,
                 "created_at": datetime.utcnow()
-            })
+            }
+            result = await users_collection.insert_one(user_doc)
             user_id = str(result.inserted_id)
+            
+            # --- MULTI-TENANT: Auto-create Org & Membership ---
+            from app.services.db import organizations_collection, org_members_collection
+            import re
+            
+            org_name = f"{name}'s Org"
+            slug = re.sub(r'[^a-z0-9]+', '-', org_name.lower()).strip('-')
+            org_doc = {
+                "name": org_name,
+                "slug": slug,
+                "owner_id": user_id,
+                "logo_url": None,
+                "created_at": datetime.utcnow()
+            }
+            org_result = await organizations_collection.insert_one(org_doc)
+            
+            member_doc = {
+                "org_id": str(org_result.inserted_id),
+                "user_id": user_id,
+                "role": "admin",
+                "created_at": datetime.utcnow()
+            }
+            await org_members_collection.insert_one(member_doc)
+            
         else:
             # Update existing user
             await users_collection.update_one(
@@ -111,11 +136,14 @@ async def sync_clerk_user(request: ClerkSyncRequest):
             )
             user_id = str(existing_user["_id"])
             
+        # Create access token
+        token = create_access_token(user_id=user_id, email=email)
+        
         return LoginResponse(
             user_id=user_id,
             email=email,
             name=name,
-            token=request.clerk_id
+            token=token
         )
         
     except Exception as e:

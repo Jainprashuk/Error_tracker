@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance } from 'axios';
+import { useAuthStore } from '../store/auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://bugtracker.jainprashuk.in';
 
@@ -18,11 +19,18 @@ class ApiClient {
       },
     });
 
-    // Add request interceptor to include auth token
+    // Add request interceptor to include auth token and org id
     this.client.interceptors.request.use((config) => {
+      const { currentOrgId } = useAuthStore.getState();
+      
       if (this.token) {
         config.headers.Authorization = `Bearer ${this.token}`;
       }
+      
+      if (currentOrgId) {
+        config.headers['x-org-id'] = currentOrgId;
+      }
+      
       return config;
     });
 
@@ -51,19 +59,28 @@ class ApiClient {
 export const apiClient = new ApiClient();
 
 /**
- * Get all projects for a user
+ * Get all organizations for the current user
  */
-export const getProjects = async (userId: string, token: string) => {
+export const getOrganizations = async (token: string) => {
   apiClient.setToken(token);
-  const response = await apiClient.getClient().get(`/projects/${userId}`);
+  const response = await apiClient.getClient().get('/orgs');
   return response.data;
 };
 
 /**
- * Create a new project
+ * Get all projects for the current organization
+ */
+export const getProjects = async (token: string) => {
+  apiClient.setToken(token);
+  const response = await apiClient.getClient().get('/projects');
+  return response.data;
+};
+
+/**
+ * Create a new project in the current organization
  */
 export const createProject = async (
-  data: { name: string; userId: string },
+  data: { name: string },
   token: string
 ) => {
   apiClient.setToken(token);

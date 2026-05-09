@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { LogOut, Zap, Bug, LayoutDashboard, Ticket, Settings, Menu, X } from 'lucide-react';
+import { LogOut, Zap, Bug, LayoutDashboard, Ticket, Settings, Menu, X, Users, Shield } from 'lucide-react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { DOCS_SECTIONS } from '../types/docsSections';
+import { OrgSwitcher } from './OrgSwitcher';
 
 interface NavItem {
   label: string;
@@ -40,8 +41,10 @@ export const Sidebar: React.FC = () => {
   const navItems: NavItem[] = user
     ? [
       { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+      { label: 'Members', icon: Users, href: '/members' },
       { label: 'Tickets', icon: Ticket, href: '/tickets' },
       { label: 'Settings', icon: Settings, href: '/settings' },
+      ...(user.email === '29jainprashuk@gmail.com' ? [{ label: 'Super Admin', icon: Shield, href: '/superadmin' }] : []),
       { label: 'Docs', icon: Zap, href: '/docs' }
     ]
     : [
@@ -92,6 +95,9 @@ export const Sidebar: React.FC = () => {
             </div>
           </div>
         </div>
+        
+        {/* ── Organization Switcher ── */}
+        {user && <OrgSwitcher />}
 
         {/* ── Nav Section Label ── */}
         <div className="px-5 pt-5 pb-2">

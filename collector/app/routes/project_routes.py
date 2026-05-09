@@ -1,66 +1,99 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Header
 from datetime import datetime
 from app.models.project_model import CreateProject
-from app.services.db import db
+from app.services.db import db, projects_collection, project_members_collection
 from app.utils.api_key import generate_api_key
 from bson import ObjectId
 from app.utils.encryption import decrypt_data, encrypt_data
+from app.middleware.org_middleware import verify_org_membership
 
-router = APIRouter()
-
-projects_collection = db["projects"]
-
-
+router = APIRouter(tags=["Projects"])
 
 @router.post("/projects")
-async def create_project(project: CreateProject):
-
+async def create_project(
+    project: CreateProject,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_CREATE"))
+):
     api_key = generate_api_key()
 
     data = {
         "name": project.name,
-        "user_id": ObjectId(project.user_id),
+        "org_id": ObjectId(x_org_id),
         "api_key": api_key,
         "created_at": datetime.utcnow()
     }
 
-    # 💡 P1: Await async insert
     result = await projects_collection.insert_one(data)
 
     return {
         "project_id": str(result.inserted_id),
-        "api_key": api_key
+        "api_key": api_key,
+        "org_id": x_org_id
     }
 
-@router.get("/projects/{user_id}")
-async def get_user_projects(user_id: str):
-
-    # 💡 P1: Await async find + to_list
-    projects = await projects_collection.find(
-        {"user_id": ObjectId(user_id)}
-    ).to_list(length=100)
-
-    for p in projects:
-        p["_id"] = str(p["_id"])
-        p["user_id"] = str(p["user_id"])
-        
-        try:
-            if p.get("integrations") and p["integrations"].get("openproject"):
-                op = p["integrations"]["openproject"]
-                if op.get("api_key"):
-                    raw_key = decrypt_data(op["api_key"])
-                    op["api_key"] = encrypt_data(raw_key) 
-        except Exception:
-            pass
-
-    return projects
-
 @router.get("/projects")
-async def list_projects():
-    # 💡 P1: Await async find + to_list
-    projects = await projects_collection.find({}, {"_id": 1, "name": 1, "api_key": 1}).to_list(length=100)
+async def list_org_projects(
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
+):
+    user_id = org_membership["user_id"]
+    user_role = org_membership.get("role", "viewer")
 
+    # 1. Base query: must belong to the org
+    query = {"org_id": ObjectId(x_org_id)}
+
+    # Cache assigned projects for quick role lookup
+    role_map = {}
+    if user_role != "admin":
+        assigned_docs = await project_members_collection.find({"user_id": user_id}).to_list(length=100)
+        assigned_ids = []
+        for doc in assigned_docs:
+            pid = str(doc["project_id"])
+            role_map[pid] = doc.get("role", "viewer")
+            assigned_ids.append(ObjectId(doc["project_id"]))
+        query["_id"] = {"$in": assigned_ids}
+
+    projects = await projects_collection.find(query).to_list(length=100)
+
+    def stringify_doc(doc):
+        if isinstance(doc, list):
+            return [stringify_doc(x) for x in doc]
+        if isinstance(doc, dict):
+            return {k: stringify_doc(v) for k, v in doc.items()}
+        if isinstance(doc, ObjectId):
+            return str(doc)
+        return doc
+
+    sanitized_projects = []
     for p in projects:
-        p["_id"] = str(p["_id"])
+        try:
+            pid_str = str(p["_id"])
+            p = stringify_doc(p)
+            p["id"] = p.get("_id")
+            
+            # Determine effective role in this project
+            effective_role = "admin" if user_role == "admin" else role_map.get(pid_str, "viewer")
+            p["my_project_role"] = effective_role
 
-    return projects
+            # 🔐 P0 SECURITY: Strip API Key if no capability
+            from app.middleware.org_middleware import check_permission
+            has_api_permission = await check_permission(effective_role, "API_KEY_VIEW")
+            if not has_api_permission:
+                p["api_key"] = "•••••••••••••••• (Restricted)"
+
+            # Handle integrations
+            if p.get("integrations") and isinstance(p["integrations"], dict):
+                op = p["integrations"].get("openproject")
+                if op and isinstance(op, dict) and op.get("api_key"):
+                    try:
+                        raw_key = decrypt_data(op["api_key"])
+                        op["api_key"] = encrypt_data(raw_key)
+                    except:
+                        pass
+            sanitized_projects.append(p)
+        except Exception as e:
+            print(f"Error sanitizing project: {e}")
+            continue
+
+    return sanitized_projects

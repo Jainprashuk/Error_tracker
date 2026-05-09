@@ -15,15 +15,17 @@ export const ClerkSync: React.FC = () => {
 
         const syncSession = async () => {
             if (clerkUser) {
-                // Skip if already synced in this session to prevent infinite fetch loops
-                if (currentStoreUser && localStorage.getItem("session")) {
-                    console.log("[ClerkSync] User already in store, skipping redundant sync.");
+                // Skip if already synced in this session to prevent infinite fetch loops, 
+                // BUT only if we also have organizations. If orgs are missing, we must sync.
+                const { organizations: storeOrgs } = useAuthStore.getState();
+                if (currentStoreUser && localStorage.getItem("session") && storeOrgs.length > 0) {
+                    console.log("[ClerkSync] User and Orgs already in store, skipping redundant sync.");
                     return;
                 }
 
                 console.log("[ClerkSync] Starting synchronization for:", clerkUser.id);
                 try {
-                    const token = await getToken();
+                    await getToken();
                     let mongoUserId = clerkUser.id;
 
                     // Use localhost (Standard for local dev) or manual override
@@ -51,9 +53,30 @@ export const ClerkSync: React.FC = () => {
                             email: clerkUser.primaryEmailAddress?.emailAddress || "",
                         };
 
+                        const { setOrganizations, setCurrentOrgId, currentOrgId } = useAuthStore.getState();
+
+                        // Fetch organizations using the INTERNAL token returned from sync
+                        const orgsRes = await fetch(`${apiUrl}/orgs`, {
+                            headers: { 'Authorization': `Bearer ${data.token}` }
+                        });
+                        
+                        let orgs = [];
+                        if (orgsRes.ok) {
+                            orgs = await orgsRes.json();
+                            if (!Array.isArray(orgs)) orgs = [];
+                        } else {
+                            console.error("[ClerkSync] Failed to fetch orgs:", orgsRes.status);
+                        }
+                        
+                        setOrganizations(orgs);
+                        
+                        if (!currentOrgId && orgs.length > 0) {
+                            setCurrentOrgId(orgs[0]._id);
+                        }
+
                         localStorage.setItem("session", JSON.stringify({
                             user: localUser,
-                            token: token
+                            token: data.token
                         }));
 
                         setUser(localUser);

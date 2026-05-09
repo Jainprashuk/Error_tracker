@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Zap, Activity, Clock, Server, MonitorPlay } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Badge, Skeleton } from '../components/ui';
+import { useAuthStore } from '../store/auth';
 import toast from 'react-hot-toast';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
@@ -49,23 +50,30 @@ export const ProjectPerformancePage: React.FC = () => {
   const loadProjectAndMetrics = async () => {
     setIsLoading(true);
     try {
+      const { currentOrgId } = useAuthStore.getState();
       const session = localStorage.getItem('session');
       const token = session ? JSON.parse(session).token : null;
-      if (!token || !id) return;
+      if (!token || !id || !currentOrgId) return;
 
-      const { user } = JSON.parse(session || '{}');
-      const projectsRes = await fetch(`${API_BASE_URL}/projects/${user.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      // 1. Get project details from the org-scoped projects list
+      const projectsRes = await fetch(`${API_BASE_URL}/projects`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'x-org-id': currentOrgId
+        },
       });
       if (!projectsRes.ok) throw new Error('Failed to load projects');
 
       const allProjects = await projectsRes.json();
-      const projectData = (Array.isArray(allProjects) ? allProjects : []).find((p: any) => p._id === id);
+      const projectData = (Array.isArray(allProjects) ? allProjects : []).find((p: any) => (p._id || p.id) === id);
       if (!projectData) throw new Error('Project not found');
       setProject(projectData);
 
       const perfRes = await fetch(`${API_BASE_URL}/projects/${id}/performance?days=${days}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'x-org-id': currentOrgId
+        },
       });
       if (!perfRes.ok) throw new Error('Failed to load performance metrics');
 
@@ -88,12 +96,16 @@ export const ProjectPerformancePage: React.FC = () => {
 
   const loadRouteTimeseries = async (route: string) => {
     try {
+      const { currentOrgId } = useAuthStore.getState();
       const session = localStorage.getItem('session');
       const token = session ? JSON.parse(session).token : null;
-      if (!token || !id) return;
+      if (!token || !id || !currentOrgId) return;
 
       const res = await fetch(`${API_BASE_URL}/projects/${id}/performance/route?route=${encodeURIComponent(route)}&days=${days}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'x-org-id': currentOrgId
+        },
       });
       if (!res.ok) return;
 
