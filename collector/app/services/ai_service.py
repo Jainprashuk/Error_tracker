@@ -34,32 +34,36 @@ class AIService:
         stack = error_obj.get('stack') or error_data.get('stack')
         client_url = error_data.get('request', {}).get('url') or error_data.get('client_url')
 
-        prompt = f"""
-        You are a Principal Software Engineer specialized in Post-Mortem Debugging.
-        
-        CONTEXT:
-        - Error Message: {message}
-        - Stack Trace: {stack}
-        - App URL: {client_url}
-        - User Navigation (Breadcrumbs): {json.dumps(breadcrumbs)}
-        
-        CRITICAL RULES:
-        1. Analyze the SPECIFIC stack trace provided. Do not give generic advice. IF STACK IS EMPTY, identify that you lack context.
-        2. Look for patterns in breadcrumbs leading to the crash.
-        3. If the error is 'Failed to fetch', focus on Network, CORS, or Server availability.
-        
-        TASK:
-        1. "problem": Explain exactly why this specific error happened based on the stack.
-        2. "solution": Provide a concrete, actionable code or config fix.
-        
-        FORMAT (JSON ONLY):
-        {{
-            "problem": "...",
-            "solution": "..."
-        }}
-        """
-        
         try:
+            # 💡 P0 FIX: String formatting with json.dumps can fail if breadcrumbs contain non-serializable types (like Dates/ObjectIDs)
+            # Move it inside the try block to catch these failures.
+            safe_breadcrumbs = json.loads(json.dumps(breadcrumbs, default=str))
+            
+            prompt = f"""
+            You are a Principal Software Engineer specialized in Post-Mortem Debugging.
+            
+            CONTEXT:
+            - Error Message: {message}
+            - Stack Trace: {stack}
+            - App URL: {client_url}
+            - User Navigation (Breadcrumbs): {json.dumps(safe_breadcrumbs)}
+            
+            CRITICAL RULES:
+            1. Analyze the SPECIFIC stack trace provided. Do not give generic advice. IF STACK IS EMPTY, identify that you lack context.
+            2. Look for patterns in breadcrumbs leading to the crash.
+            3. If the error is 'Failed to fetch', focus on Network, CORS, or Server availability.
+            
+            TASK:
+            1. "problem": Explain exactly why this specific error happened based on the stack.
+            2. "solution": Provide a concrete, actionable code or config fix.
+            
+            FORMAT (JSON ONLY):
+            {{
+                "problem": "...",
+                "solution": "..."
+            }}
+            """
+            
             response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             text = response.text.replace('```json', '').replace('```', '').strip()
             result = json.loads(text)
@@ -79,24 +83,27 @@ class AIService:
         if not self.client:
             return {"result": "Intelligence offline.", "prompt": "", "response": ""}
 
-        prompt = f"""
-        You are an SRE Manager reviewing Project: {project_name}
-        
-        DATA PROVIDED:
-        - Top Error Signatures (JSON): {json.dumps(errors_summary)}
-        - Performance Samples (Top 5 Routes): {json.dumps(perf_summary)}
-        
-        GUARDRAILS:
-        - Be brutally honest. If there are recurring error signatures, health is NOT "excellent".
-        - Identify the most frequent error by its message and recommend a fix.
-        - If 'total_errors' or individual signature counts are high, prioritize reliability as the biggest risk.
-        - If DATA IS EMPTY, state that monitoring is initialized but no data has been received yet.
-        
-        TASK:
-        Provide a 3-sentence health report. 1st sentence: Status based on specific signatures and latency numbers. 2nd sentence: Biggest threat (mention the top error message). 3rd sentence: Immediate next step.
-        """
-        
         try:
+            safe_errors = json.loads(json.dumps(errors_summary, default=str))
+            safe_perf = json.loads(json.dumps(perf_summary, default=str))
+            
+            prompt = f"""
+            You are an SRE Manager reviewing Project: {project_name}
+            
+            DATA PROVIDED:
+            - Top Error Signatures (JSON): {json.dumps(safe_errors)}
+            - Performance Samples (Top 5 Routes): {json.dumps(safe_perf)}
+            
+            GUARDRAILS:
+            - Be brutally honest. If there are recurring error signatures, health is NOT "excellent".
+            - Identify the most frequent error by its message and recommend a fix.
+            - If 'total_errors' or individual signature counts are high, prioritize reliability as the biggest risk.
+            - If DATA IS EMPTY, state that monitoring is initialized but no data has been received yet.
+            
+            TASK:
+            Provide a 3-sentence health report. 1st sentence: Status based on specific signatures and latency numbers. 2nd sentence: Biggest threat (mention the top error message). 3rd sentence: Immediate next step.
+            """
+            
             response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             return {"result": response.text.strip(), "prompt": prompt, "response": response.text}
         except Exception as e:
@@ -112,22 +119,24 @@ class AIService:
 
         total_errors = sum(p.get('error_count', 0) for p in org_data)
         
-        prompt = f"""
-        You are a CTO reviewing Organization-Wide Telemetry.
-        
-        INVENTORY BY PROJECT:
-        {json.dumps(org_data)}
-        
-        RULES:
-        1. Analyze the 'most_frequent_signature' for each project.
-        2. If errors exist, identifying the "Bad Actor" project and its primary crashing signature is mandatory.
-        3. Keep it under 80 words. Professional, data-driven, and technical.
-        
-        TASK:
-        Summarize the organizational state. Mention the bad actor by name and its most frequent error message.
-        """
-        
         try:
+            safe_org_data = json.loads(json.dumps(org_data, default=str))
+            
+            prompt = f"""
+            You are a CTO reviewing Organization-Wide Telemetry.
+            
+            INVENTORY BY PROJECT:
+            {json.dumps(safe_org_data)}
+            
+            RULES:
+            1. Analyze the 'most_frequent_signature' for each project.
+            2. If errors exist, identifying the "Bad Actor" project and its primary crashing signature is mandatory.
+            3. Keep it under 80 words. Professional, data-driven, and technical.
+            
+            TASK:
+            Summarize the organizational state. Mention the bad actor by name and its most frequent error message.
+            """
+            
             response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             return {"result": response.text.strip(), "prompt": prompt, "response": response.text}
         except Exception as e:
@@ -144,18 +153,20 @@ class AIService:
         if not performance_data:
             return {"result": "No performance telemetry has been collected for this project yet...", "prompt": "", "response": ""}
 
-        prompt = f"""
-        Analyze these Performance Metrics:
-        {json.dumps(performance_data)}
-        
-        TASK:
-        1. Identify the route with the highest 'page_load' time.
-        2. Provide 2 specific optimizations for that route.
-        
-        STRICTURE: Do not discuss hypothetical routes. Stick ONLY to the data provided.
-        """
-        
         try:
+            safe_perf = json.loads(json.dumps(performance_data, default=str))
+            
+            prompt = f"""
+            Analyze these Performance Metrics:
+            {json.dumps(safe_perf)}
+            
+            TASK:
+            1. Identify the route with the highest 'page_load' time.
+            2. Provide 2 specific optimizations for that route.
+            
+            STRICTURE: Do not discuss hypothetical routes. Stick ONLY to the data provided.
+            """
+            
             response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             return {"result": response.text.strip(), "prompt": prompt, "response": response.text}
         except Exception as e:
