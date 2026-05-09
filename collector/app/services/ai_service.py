@@ -28,11 +28,11 @@ class AIService:
         if not self.client:
             return {"error": "AI Service not configured"}
 
-        # 💡 P0 FIX: Data is nested in the 'error' object within the payload
-        error_obj = error_data.get('error', {})
+        # 💡 P0 FIX: Data is nested in the 'error' object within the payload. Use 'or {}' to handle nulls.
+        error_obj = error_data.get('error') or {}
         message = error_obj.get('message') or error_data.get('message')
         stack = error_obj.get('stack') or error_data.get('stack')
-        client_url = error_data.get('request', {}).get('url') or error_data.get('client_url')
+        client_url = (error_data.get('request') or {}).get('url') or error_data.get('client_url')
 
         try:
             # 💡 P0 FIX: String formatting with json.dumps can fail if breadcrumbs contain non-serializable types (like Dates/ObjectIDs)

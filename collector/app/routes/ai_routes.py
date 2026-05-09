@@ -89,8 +89,8 @@ async def analyze_incident(
             sort=[("created_at", -1)]
         )
         
-        # 💡 P0 FIX: Breadcrumbs are inside the payload object
-        payload = latest_event.get("payload") if latest_event else {}
+        # 💡 P0 FIX: Breadcrumbs are inside the payload object. Handle null payload safely.
+        payload = (latest_event.get("payload") if latest_event else {}) or {}
         breadcrumbs = payload.get("breadcrumbs", [])
         
         # 💡 P0 FIX: Attach payload data (stack trace, message) to error_group for AI visibility
