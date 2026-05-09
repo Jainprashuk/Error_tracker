@@ -219,9 +219,9 @@ export const ProjectPerformancePage: React.FC = () => {
                         onClick={() => setSelectedRoute(r.route)}
                         className={`w-full text-left px-4 py-3 rounded-xl mb-1 transition-all ${selectedRoute === r.route ? 'bg-blue-600/20 border border-blue-500/30' : 'hover:bg-slate-800/80 border border-transparent'}`}
                       >
-                         <div className="flex justify-between items-center mb-1">
-                            <span className={`font-mono text-sm font-semibold truncate ${selectedRoute === r.route ? 'text-blue-300' : 'text-slate-300'}`}>{r.route}</span>
-                            <Badge variant="default" className="text-[10px] py-0">{r.sample_count} req</Badge>
+                         <div className="flex justify-between items-start mb-1.5 gap-3">
+                            <span className={`font-mono text-xs font-semibold break-all leading-relaxed flex-1 ${selectedRoute === r.route ? 'text-blue-300' : 'text-slate-300'}`}>{r.route}</span>
+                            <Badge variant="default" className="text-[10px] py-0 px-1.5 h-5 flex-shrink-0">{r.sample_count} req</Badge>
                          </div>
                          <div className="flex items-center gap-4 text-xs text-slate-500">
                             <span>LCP: <strong className={selectedRoute === r.route ? 'text-blue-200' : 'text-slate-400'}>{r.avg?.pageLoadTime || '-'}ms</strong></span>
@@ -319,9 +319,12 @@ export const ProjectPerformancePage: React.FC = () => {
                         onClick={() => setSelectedApiRoute(r.apiRoute)}
                         className={`w-full text-left px-4 py-3 rounded-xl mb-1 transition-all ${selectedApiRoute === r.apiRoute ? 'bg-purple-600/20 border border-purple-500/30' : 'hover:bg-slate-800/80 border border-transparent'}`}
                       >
-                         <div className="flex justify-between items-center mb-1">
-                            <span className={`font-mono text-sm font-semibold truncate max-w-[200px] ${selectedApiRoute === r.apiRoute ? 'text-purple-300' : 'text-slate-300'}`}>[{r.method}] {r.apiRoute.split('?')[0]}</span>
-                            <Badge variant="default" className="text-[10px] py-0">{r.sample_count} req</Badge>
+                         <div className="flex justify-between items-start mb-1.5 gap-3">
+                            <span className={`font-mono text-[11px] font-semibold break-all leading-relaxed flex-1 ${selectedApiRoute === r.apiRoute ? 'text-purple-300' : 'text-slate-300'}`}>
+                              <span className="opacity-40 font-bold mr-1">[{r.method}]</span>
+                              {r.apiRoute.split('?')[0]}
+                            </span>
+                            <Badge variant="default" className="text-[10px] py-0 px-1.5 h-5 flex-shrink-0">{r.sample_count} req</Badge>
                          </div>
                          <div className="flex items-center gap-4 text-xs text-slate-500">
                             <span>Avg Dur: <strong className={selectedApiRoute === r.apiRoute ? 'text-purple-200' : 'text-slate-400'}>{r.avgDuration}ms</strong></span>
