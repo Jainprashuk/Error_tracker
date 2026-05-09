@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
@@ -114,6 +114,16 @@ async def list_org_projects_admin(org_id: str, admin: dict = Depends(verify_supe
     projects = await projects_collection.find({"org_id": ObjectId(org_id)}).to_list(length=100)
     return [stringify(p) for p in projects]
 
+@router.get("/projects")
+async def list_all_projects(admin: dict = Depends(verify_superadmin)):
+    projects = await projects_collection.find({}).to_list(length=1000)
+    return [stringify(p) for p in projects]
+
+@router.get("/users")
+async def list_all_users(admin: dict = Depends(verify_superadmin)):
+    users = await users_collection.find({}).to_list(length=1000)
+    return [stringify(u) for u in users]
+
 @router.get("/project/{project_id}/members")
 async def list_project_members_admin(project_id: str, admin: dict = Depends(verify_superadmin)):
     memberships = await project_members_collection.find({"project_id": project_id}).to_list(length=100)
@@ -127,6 +137,55 @@ async def list_project_members_admin(project_id: str, admin: dict = Depends(veri
                 "role": m.get("role", "viewer")
             })
     return enriched
+
+@router.get("/ai-usage")
+async def get_ai_usage_logs(
+    user_id: Optional[str] = None,
+    org_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+    page: int = Query(1),
+    page_size: int = Query(20),
+    admin: dict = Depends(verify_superadmin)
+):
+    """
+    Returns AI usage logs with filtering for credit management.
+    """
+    from app.services.db import ai_usage_collection
+    
+    query = {}
+    if user_id: query["user_id"] = user_id
+    if org_id: query["org_id"] = org_id
+    if project_id: query["project_id"] = project_id
+    
+    skip = (page - 1) * page_size
+    total = await ai_usage_collection.count_documents(query)
+    logs = await ai_usage_collection.find(query).sort("timestamp", -1).skip(skip).limit(page_size).to_list(length=page_size)
+    
+    # Enrich with names for better UI
+    enriched = []
+    for log in logs:
+        # Fetch user
+        u = await users_collection.find_one({"_id": ObjectId(log["user_id"])})
+        # Fetch org
+        o = await organizations_collection.find_one({"_id": ObjectId(log["org_id"])})
+        # Fetch project
+        p_name = "Organization Wide"
+        if log.get("project_id") != "global" and ObjectId.is_valid(log.get("project_id")):
+            p = await projects_collection.find_one({"_id": ObjectId(log["project_id"])})
+            p_name = p.get("name") if p else "Unknown Project"
+        
+        log["_id"] = str(log["_id"])
+        log["user_email"] = u.get("email") if u else "Unknown"
+        log["org_name"] = o.get("name") if o else "Unknown"
+        log["project_name"] = p_name
+        enriched.append(log)
+        
+    return {
+        "logs": enriched,
+        "total": total,
+        "page": page,
+        "page_size": page_size
+    }
 
 @router.post("/project/{project_id}/member-role")
 async def update_project_member_role_admin(project_id: str, request: ProjectMemberRoleRequest, admin: dict = Depends(verify_superadmin)):

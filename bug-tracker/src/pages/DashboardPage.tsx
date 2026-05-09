@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, AlertTriangle, LayoutGrid, Clock,
-  ArrowRight, Activity, Zap, RefreshCw, Eye, EyeOff, Bell, MessageSquare, X
+  ArrowRight, Activity, Zap, RefreshCw, Eye, EyeOff, Bell, MessageSquare, X, Cpu
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Skeleton, StatCard, EmptyState, Badge } from '../components/ui';
@@ -14,6 +14,7 @@ import { ResponsiveContainer } from 'recharts';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import toast from 'react-hot-toast';
 import { encrypt } from '../utils/crypto';
+import { AIInsightCard } from '../components/AIInsightCard';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -547,6 +548,18 @@ export const DashboardPage: React.FC = () => {
               />
             </div>
           </div>
+
+          {/* ── AI Intelligence Overview ── */}
+          {!isLoading && projects.length > 0 && (
+            <div className="animate-fade-in-up delay-225">
+              <AIInsightCard 
+                title="Organization executive Summary"
+                endpoint="/ai/global-overview"
+                icon={<Cpu size={16} />}
+                variant="purple"
+              />
+            </div>
+          )}
 
           {/* ── Error trend chart ── */}
           {!isLoading && projects.length > 0 && (

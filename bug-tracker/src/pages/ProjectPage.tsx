@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash, Key, Filter, Eye, EyeOff, ExternalLink, X, Activity, Users, Lock, Trash2, Edit2, Save } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton } from '../components/ui';
+import { AIInsightCard } from '../components/AIInsightCard';
 import { useAuthStore } from '../store/auth';
 import type { Error as ErrorType, Project } from '../types';
 import toast from 'react-hot-toast';
@@ -233,6 +234,11 @@ export const ProjectPage: React.FC = () => {
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const { organizations, currentOrgId } = useAuthStore();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalErrors, setTotalErrors] = useState(0);
+  const issuesPageSize = 10;
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
   const currentOrg = organizations.find(o => o._id === currentOrgId);
   
   const hasPermission = (permission: string) => {
@@ -247,10 +253,46 @@ export const ProjectPage: React.FC = () => {
   const canEdit = hasPermission('PROJECT_EDIT');
   const canCreateTicket = hasPermission('TICKET_CREATE');
 
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState('');
+  useEffect(() => { 
+    loadProjectData(); 
+  }, [id]);
 
-  useEffect(() => { loadProjectData(); }, [id]);
+  useEffect(() => { 
+    loadProjectErrors(currentPage); 
+  }, [id, currentPage]);
+
+  const loadProjectErrors = async (page: number) => {
+    try {
+      const { currentOrgId } = useAuthStore.getState();
+      const session = localStorage.getItem('session');
+      const token = session ? JSON.parse(session).token : null;
+      if (!token || !id || !currentOrgId) return;
+
+      const errorsRes = await fetch(`${API_BASE_URL}/projects/${id}/errors?page=${page}&limit=${issuesPageSize}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          'Content-Type': 'application/json',
+          'x-org-id': currentOrgId
+        },
+      });
+      if (!errorsRes.ok) throw new Error('Failed to load errors');
+
+      const errorsData = await errorsRes.json();
+      const projectErrors = errorsData.data || (Array.isArray(errorsData) ? errorsData : []);
+      setErrors(projectErrors);
+      setTotalErrors(errorsData.total || projectErrors.length);
+      
+      if (project && projectErrors.length > 0) {
+        setProject(prev => prev ? {
+          ...prev,
+          errorCount: errorsData.total || projectErrors.length,
+          lastSeen: (projectErrors[0].last_seen || projectErrors[0].lastSeen)
+        } : null);
+      }
+    } catch (err) {
+      console.error('Failed to load project errors:', err);
+    }
+  };
 
   const loadProjectData = async () => {
     setIsLoading(true);
@@ -274,32 +316,17 @@ export const ProjectPage: React.FC = () => {
       const projectData = (Array.isArray(allProjects) ? allProjects : []).find((p: any) => (p._id || p.id) === id);
       if (!projectData) throw new Error('Project not found');
 
-      // 2. Get errors for this project (scoped by org header for security)
-      const errorsRes = await fetch(`${API_BASE_URL}/projects/${id}/errors`, {
-        headers: { 
-          Authorization: `Bearer ${token}`, 
-          'Content-Type': 'application/json',
-          'x-org-id': currentOrgId
-        },
-      });
-      if (!errorsRes.ok) throw new Error('Failed to load errors');
-
-      const errorsData = await errorsRes.json();
-      const projectErrors = errorsData.data || (Array.isArray(errorsData) ? errorsData : []);
-
+      // Set initial project data
       setProject({
         id: projectData._id,
         name: projectData.name,
         apiKey: projectData.api_key,
         createdAt: projectData.created_at,
         orgId: projectData.org_id,
-        errorCount: errorsData.total || projectErrors.length,
-        lastSeen: projectErrors.length > 0
-          ? (projectErrors[0].last_seen || projectErrors[0].lastSeen)
-          : null,
+        errorCount: 0,
+        lastSeen: null,
         my_project_role: projectData.my_project_role
       });
-      setErrors(projectErrors);
     } catch (err) {
       console.error('Failed to load project data:', err);
       toast.error('Failed to load project data');
@@ -564,6 +591,16 @@ export const ProjectPage: React.FC = () => {
             onUpdate={loadProjectData}
           />
 
+          {/* ── AI Health Summary ── */}
+          <div className="animate-fade-in-up delay-75">
+            <AIInsightCard 
+              title="Autonomous Health Summary"
+              endpoint={`/ai/project-summary/${id}`}
+              variant="blue"
+              icon={<Activity size={16} />}
+            />
+          </div>
+
           {/* ── Stats row ── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-fade-in-up delay-75">
             {/* Total errors */}
@@ -574,7 +611,7 @@ export const ProjectPage: React.FC = () => {
                   <AlertTriangle size={14} className="text-red-400" />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-red-400">{errors.length}</p>
+              <p className="text-3xl font-bold text-red-400">{totalErrors}</p>
             </div>
 
             {/* Last seen */}
@@ -713,7 +750,7 @@ export const ProjectPage: React.FC = () => {
                           error={error}
                           index={idx}
                           onClick={() => navigate(`/error/${error.fingerprint}`)}
-                          refetchData={loadProjectData}
+                          refetchData={() => loadProjectErrors(currentPage)}
                           userRole={userRole}
                           currentOrgId={currentOrgId}
                           canCreateTicket={canCreateTicket}
@@ -722,6 +759,46 @@ export const ProjectPage: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+                
+                {/* Pagination Controls */}
+                {totalErrors > issuesPageSize && (
+                  <div className="px-6 py-4 border-t border-slate-700/30 flex items-center justify-between bg-slate-900/20">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      Showing {((currentPage - 1) * issuesPageSize) + 1} - {Math.min(currentPage * issuesPageSize, totalErrors)} of {totalErrors}
+                    </p>
+                    <div className="flex gap-2">
+                       <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      
+                      {[...Array(Math.ceil(totalErrors / issuesPageSize))].map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setCurrentPage(i + 1)}
+                          className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${
+                            currentPage === i + 1 
+                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 border-blue-500' 
+                              : 'border border-slate-700 text-slate-500 hover:border-slate-500'
+                          }`}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalErrors / issuesPageSize), p + 1))}
+                        disabled={currentPage >= Math.ceil(totalErrors / issuesPageSize)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                      >
+                        <ChevronLeft size={16} className="rotate-180" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </Card>
             )}
           </div>

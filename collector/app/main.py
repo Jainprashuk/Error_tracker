@@ -18,6 +18,7 @@ from app.routes.performance_routes import router as performance_router
 from app.routes.organization_routes import router as organization_router
 from app.routes.member_routes import router as member_router
 from app.routes.admin_routes import router as admin_router
+from app.routes.ai_routes import router as ai_router
 
 
 # Configure structured logging
@@ -88,6 +89,7 @@ app.include_router(performance_router)
 app.include_router(organization_router)
 app.include_router(member_router)
 app.include_router(admin_router)
+app.include_router(ai_router)
 
 @app.get("/")
 def root():

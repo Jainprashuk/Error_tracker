@@ -54,6 +54,8 @@ org_members_collection = db["org_members"]
 project_members_collection = db["project_members"]
 org_invitations_collection = db["org_invitations"]
 roles_collection = db["roles"] # 🎭 Dynamic RBAC storage
+ai_insights_collection = db["ai_insights"] # 🧠 Intelligence Cache
+ai_usage_collection = db["ai_usage_logs"] # 📊 Credit Tracking
 
 
 async def init_db():

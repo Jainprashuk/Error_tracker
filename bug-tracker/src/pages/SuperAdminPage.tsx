@@ -59,6 +59,15 @@ export const SuperAdminPage: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectMembers, setProjectMembers] = useState<any[]>([]);
   const [showGuide, setShowGuide] = useState(false);
+  const [aiUsage, setAiUsage] = useState<any[]>([]);
+  const [usageFilters, setUsageFilters] = useState({ org: '', user_email: '', project: '' });
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalLogs, setTotalLogs] = useState(0);
+  const [selectedLog, setSelectedLog] = useState<any>(null);
+  const pageSize = 10;
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -112,6 +121,54 @@ export const SuperAdminPage: React.FC = () => {
       toast.error('Failed to load organization data');
     } finally {
       // setIsRefreshingMembers(false);
+    }
+  };
+
+  const fetchAIUsage = async (page: number = 1) => {
+    try {
+      const session = JSON.parse(localStorage.getItem('session') || '{}');
+      const params = new URLSearchParams();
+      if (usageFilters.org) params.append('org_id', usageFilters.org);
+      if (usageFilters.user_email) params.append('user_id', usageFilters.user_email);
+      if (usageFilters.project) params.append('project_id', usageFilters.project);
+      params.append('page', page.toString());
+      params.append('page_size', pageSize.toString());
+
+      const res = await fetch(`${API_BASE_URL}/admin/ai-usage?${params.toString()}`, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch AI usage');
+      const data = await res.json();
+      setAiUsage(data.logs);
+      setTotalLogs(data.total);
+      setCurrentPage(data.page);
+      setShowFilters(false);
+    } catch (err) {
+      toast.error('Failed to load AI consumption data');
+    }
+  };
+
+  const fetchGlobalProjects = async () => {
+    try {
+      const session = JSON.parse(localStorage.getItem('session') || '{}');
+      const res = await fetch(`${API_BASE_URL}/admin/projects`, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+      if (res.ok) setAllProjects(await res.json());
+    } catch (err) {
+      console.error('Failed to fetch global projects');
+    }
+  };
+
+  const fetchGlobalUsers = async () => {
+    try {
+      const session = JSON.parse(localStorage.getItem('session') || '{}');
+      const res = await fetch(`${API_BASE_URL}/admin/users`, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+      if (res.ok) setAllUsers(await res.json());
+    } catch (err) {
+      console.error('Failed to fetch global users');
     }
   };
 
@@ -263,6 +320,211 @@ export const SuperAdminPage: React.FC = () => {
             <p className="text-3xl font-bold text-white mt-1">{stat.value?.toLocaleString()}</p>
           </div>
         ))}
+      </div>
+
+      {/* ── Gemini Consumption Intelligence ── */}
+      <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-8 shadow-xl text-left">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-3">
+              <Database size={20} className="text-amber-400" />
+              Gemini Credit Consumption
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">Real-time API hit monitoring (bypassing DB cache)</p>
+          </div>
+          <div className="flex items-center gap-3 relative">
+            <div className="relative">
+              <button 
+                onClick={() => {
+                  setShowFilters(!showFilters);
+                  if (!allProjects.length) fetchGlobalProjects();
+                  if (!allUsers.length) fetchGlobalUsers();
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${showFilters ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-500'}`}
+              >
+                <Database size={14} />
+                Advanced Filters
+                {(usageFilters.org || usageFilters.project || usageFilters.user_email) && (
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse ml-1" />
+                )}
+              </button>
+
+              {showFilters && (
+                <div className="absolute right-0 mt-3 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-5 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Organization</label>
+                      <select 
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                        value={usageFilters.org}
+                        onChange={e => setUsageFilters({...usageFilters, org: e.target.value})}
+                      >
+                        <option value="">All Organizations</option>
+                        {orgs.map(org => (
+                          <option key={org._id} value={org._id}>{org.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Specific Project</label>
+                      <select 
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                        value={usageFilters.project}
+                        onChange={e => setUsageFilters({...usageFilters, project: e.target.value})}
+                      >
+                        <option value="">All Projects</option>
+                        <option value="global">Organization-Wide Only</option>
+                        {allProjects.map(p => (
+                          <option key={p._id} value={p._id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">User Identity</label>
+                      <select 
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                        value={usageFilters.user_email}
+                        onChange={e => setUsageFilters({...usageFilters, user_email: e.target.value})}
+                      >
+                        <option value="">All Users</option>
+                        {allUsers.map(u => (
+                          <option key={u._id} value={u._id}>{u.email}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="pt-2 flex gap-2">
+                       <button 
+                        onClick={() => setUsageFilters({ org: '', user_email: '', project: '' })}
+                        className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 transition-colors"
+                      >
+                        Reset
+                      </button>
+                      <button 
+                        onClick={() => fetchAIUsage(1)}
+                        className="flex-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg"
+                      >
+                        Apply Filters
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => fetchAIUsage(1)}
+              className="w-9 h-9 flex items-center justify-center bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all border border-slate-700"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800/50">
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Timestamp</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Organization</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">User</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Telemetry Target</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">AI Agent Type</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Model</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/30">
+              {aiUsage.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center opacity-20">
+                    <Database size={32} className="mx-auto mb-2" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest">No Consumption Logs Found</p>
+                  </td>
+                </tr>
+              ) : (
+                aiUsage.map((log) => (
+                  <tr 
+                    key={log._id} 
+                    className="group hover:bg-white/5 transition-colors cursor-pointer"
+                    onClick={() => setSelectedLog(log)}
+                  >
+                    <td className="py-4 text-[11px] text-slate-400 font-mono">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </td>
+                    <td className="py-4">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-bold text-white">{log.org_name || 'N/A'}</span>
+                        <span className="text-[9px] text-slate-600 font-mono">{log.org_id}</span>
+                      </div>
+                    </td>
+                    <td className="py-4">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-slate-300">{log.user_email || 'System'}</span>
+                        <span className="text-[9px] text-slate-600 font-mono">{log.user_id}</span>
+                      </div>
+                    </td>
+                    <td className="py-4">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-bold text-slate-300 capitalize">
+                          {log.project_id === 'global' ? '🌍 Organizational' : (log.project_name || 'Project Specific')}
+                        </span>
+                        {log.project_id !== 'global' && (
+                          <span className="text-[9px] text-slate-600 font-mono">{log.project_id}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-4">
+                      <span className="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/30 text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">
+                        {log.type.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="py-4">
+                      <span className="text-[10px] font-bold text-amber-500/80 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        {log.model}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Pagination ── */}
+        {totalLogs > pageSize && (
+          <div className="mt-8 flex items-center justify-between border-t border-slate-800/50 pt-6">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalLogs)} of {totalLogs} Events
+            </p>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => fetchAIUsage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {[...Array(Math.ceil(totalLogs / pageSize))].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => fetchAIUsage(i + 1)}
+                  className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${currentPage === i+1 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border-indigo-500' : 'border border-slate-800 text-slate-500 hover:border-slate-600'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button 
+                onClick={() => fetchAIUsage(currentPage + 1)}
+                disabled={currentPage * pageSize >= totalLogs}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+              >
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
@@ -566,6 +828,90 @@ export const SuperAdminPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ── AI Log Detail Modal ── */}
+      {selectedLog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-4xl max-h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <Database size={16} className="text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">AI Consumption Intelligence</h3>
+                  <p className="text-[10px] text-slate-500 font-mono tracking-tighter">{selectedLog._id}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedLog(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-6 space-y-6">
+              {/* Meta Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6 border-b border-slate-800/50">
+                <div className="space-y-1">
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Model</p>
+                  <p className="text-xs font-bold text-amber-500">{selectedLog.model}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Agent Type</p>
+                  <p className="text-xs font-bold text-slate-300 capitalize">{selectedLog.type.replace('_', ' ')}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Executed By</p>
+                  <p className="text-xs font-medium text-slate-400 truncate">{selectedLog.user_email}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Timestamp</p>
+                  <p className="text-xs font-medium text-slate-400">{new Date(selectedLog.timestamp).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Data Blocks */}
+              <div className="space-y-6">
+                {/* Input Prompt */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    <h4 className="text-[11px] font-bold text-white uppercase tracking-widest">Input Telemetry (Prompt)</h4>
+                  </div>
+                  <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-4 font-mono text-[11px] leading-relaxed text-slate-300 whitespace-pre-wrap max-h-64 overflow-auto">
+                    {selectedLog.prompt || 'No prompt recorded for this legacy log.'}
+                  </div>
+                </div>
+
+                {/* Output Response */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <h4 className="text-[11px] font-bold text-white uppercase tracking-widest">Machine Response</h4>
+                  </div>
+                  <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-4 font-mono text-[11px] leading-relaxed text-emerald-400/90 whitespace-pre-wrap max-h-64 overflow-auto">
+                    {selectedLog.response || 'No response recorded for this legacy log.'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/50 flex justify-end">
+              <button 
+                onClick={() => setSelectedLog(null)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all"
+              >
+                Close Insights
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

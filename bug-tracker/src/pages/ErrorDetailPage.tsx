@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, Copy, Check, AlertTriangle, Clock, Hash,
-  FileCode, Globe, Zap, Image, ExternalLink, Terminal, Activity, GitCommit
+  FileCode, Globe, Zap, Image, ExternalLink, Terminal, Activity, GitCommit, Cpu
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Button, Badge, Skeleton, Tabs } from '../components/ui';
+import { AIInsightCard } from '../components/AIInsightCard';
 import { useAuthStore } from '../store/auth';
 import type { ErrorDetail } from '../types';
 import toast from 'react-hot-toast';
@@ -207,6 +208,7 @@ export const ErrorDetailPage: React.FC = () => {
     { id: 'request', label: 'Request / Response', icon: <Globe size={13} /> },
     { id: 'perf', label: 'Performance', icon: <Zap size={13} /> },
     { id: 'screen', label: 'Screenshot', icon: <Image size={13} /> },
+    { id: 'ai', label: 'AI Debugging', icon: <Cpu size={13} /> },
     { id: 'info', label: 'Info', icon: <Image size={13} />, show: error?.errorType === "manual" }
   ];
 
@@ -323,7 +325,21 @@ export const ErrorDetailPage: React.FC = () => {
           </div>
 
           {/* ── Tab Content ── */}
-          <div className="animate-fade-in">
+          <div className="animate-fade-in text-white">
+
+            {/* AI Debugging */}
+            {activeTab === 'ai' && (
+              <div className="animate-fade-in-up">
+                <AIInsightCard 
+                  title="Neural Root Cause Analysis"
+                  endpoint="/ai/analyze-error"
+                  variant="purple"
+                  icon={<Cpu size={16} />}
+                  method="POST"
+                  body={{ error_id: fingerprint }}
+                />
+              </div>
+            )}
 
             {/* Stack Trace */}
             {activeTab === 'stack' && (

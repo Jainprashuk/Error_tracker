@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Zap, Activity, Clock, Server, MonitorPlay } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Badge, Skeleton } from '../components/ui';
+import { AIInsightCard } from '../components/AIInsightCard';
 import { useAuthStore } from '../store/auth';
 import toast from 'react-hot-toast';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
@@ -185,6 +186,16 @@ export const ProjectPerformancePage: React.FC = () => {
             <option value={30} className="bg-slate-900 text-slate-300">Last 30 Days</option>
             <option value={90} className="bg-slate-900 text-slate-300">Last 90 Days</option>
           </select>
+        </div>
+
+        {/* ── AI Performance Insights ── */}
+        <div className="animate-fade-in-up delay-75">
+          <AIInsightCard 
+             title="Proactive Performance Strategy"
+             endpoint={`/ai/performance-insights/${id}`}
+             variant="emerald"
+             icon={<Zap size={16} />}
+          />
         </div>
 
         {routes.length === 0 && (metrics?.api_routes || []).length === 0 ? (
