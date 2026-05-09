@@ -124,7 +124,11 @@ export const ErrorDetailPage: React.FC = () => {
           'x-org-id': currentOrgId
         },
       });
-      if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Failed: ${response.statusText}`);
+      }
 
       const errorData = await response.json();
       setError({

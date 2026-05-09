@@ -186,7 +186,11 @@ export const DashboardPage: React.FC = () => {
           'x-org-id': currentOrgId
         },
       });
-      if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Failed: ${response.statusText}`);
+      }
 
       const projectsData = await response.json();
       const mappedProjects: Project[] = Array.isArray(projectsData)
@@ -306,7 +310,11 @@ export const DashboardPage: React.FC = () => {
         },
         body: JSON.stringify({ name }),
       });
-      if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Failed: ${response.statusText}`);
+      }
 
       const result = await response.json();
       const newProjectId = result.project_id || result.id;
