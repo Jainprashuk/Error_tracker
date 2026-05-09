@@ -116,7 +116,7 @@ async def analyze_incident(
         return analysis
     except Exception as e:
         logger.error("ai_endpoint_error", error=str(e))
-        return {"problem": "AI Analysis failed", "solution": "Check system logs."}
+        return {"problem": "AI Analysis failed", "solution": f"Internal Error: {str(e)}"}
 
 @router.get("/ai/project-summary/{project_id}")
 async def project_health_summary(
