@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, Users, Building2, Layout, Database, TrendingUp, ArrowRight, Save, Plus, X, Lock, RefreshCw, ChevronLeft, FolderKey, Info, BookOpen } from 'lucide-react';
+import { Shield, Users, Building2, Layout, Database, ArrowRight, Save, Plus, X, Lock, RefreshCw, ChevronLeft, FolderKey, BookOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Stats {
@@ -56,7 +56,7 @@ export const SuperAdminPage: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isRefreshingMembers, setIsRefreshingMembers] = useState(false);
+  // const [isRefreshingMembers, setIsRefreshingMembers] = useState(false);
   
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -88,7 +88,7 @@ export const SuperAdminPage: React.FC = () => {
   };
 
   const fetchOrgData = async (orgId: string) => {
-    setIsRefreshingMembers(true);
+    // setIsRefreshingMembers(true);
     try {
       const session = JSON.parse(localStorage.getItem('session') || '{}');
       const headers = { 'Authorization': `Bearer ${session.token}` };
@@ -105,7 +105,7 @@ export const SuperAdminPage: React.FC = () => {
     } catch (err) {
       toast.error('Failed to load organization data');
     } finally {
-      setIsRefreshingMembers(false);
+      // setIsRefreshingMembers(false);
     }
   };
 
