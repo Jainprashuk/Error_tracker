@@ -77,6 +77,7 @@ export const SuperAdminPage: React.FC = () => {
   const [selectedEmailLog, setSelectedEmailLog] = useState<any>(null);
   const [emailFilters, setEmailFilters] = useState({ type: '', recipient: '' });
   const [showEmailFilters, setShowEmailFilters] = useState(false);
+  const [uniqueRecipients, setUniqueRecipients] = useState<string[]>([]);
 
   const pageSize = 10;
 
@@ -91,6 +92,7 @@ export const SuperAdminPage: React.FC = () => {
     fetchData();
     fetchEmailLogs(1);
     fetchAIUsage(1);
+    fetchUniqueRecipients();
   }, []);
 
   const fetchData = async () => {
@@ -188,6 +190,24 @@ export const SuperAdminPage: React.FC = () => {
       toast.error('Failed to load email logs');
     } finally {
       setIsEmailLogsLoading(false);
+    }
+  };
+
+  const fetchUniqueRecipients = async () => {
+    try {
+      const session = JSON.parse(localStorage.getItem('session') || '{}');
+      // Fetch a large page to extract unique recipients
+      const res = await fetch(`${API_BASE_URL}/admin/email-logs?page=1&page_size=200`, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const emails: string[] = Array.from(
+        new Set((data.logs || []).map((l: any) => l.recipient).filter(Boolean))
+      ).sort() as string[];
+      setUniqueRecipients(emails);
+    } catch (err) {
+      // non-critical, silently fail
     }
   };
 
@@ -399,20 +419,23 @@ export const SuperAdminPage: React.FC = () => {
                         onChange={e => setEmailFilters({...emailFilters, type: e.target.value})}
                       >
                         <option value="">All Types</option>
-                        <option value="lifecycle">Lifecycle (Welcome)</option>
+                        <option value="lifecycle">Lifecycle (Welcome / Reminder)</option>
                         <option value="alert">System Alert</option>
-                        <option value="digest">Weekly Digest</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Recipient Search</label>
-                      <input 
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Recipient</label>
+                      <select
                         className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-blue-500 font-mono"
                         value={emailFilters.recipient}
                         onChange={e => setEmailFilters({...emailFilters, recipient: e.target.value})}
-                        placeholder="john@example.com"
-                      />
+                      >
+                        <option value="">All Recipients</option>
+                        {uniqueRecipients.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="pt-2 flex gap-2">
