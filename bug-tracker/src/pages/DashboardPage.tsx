@@ -265,7 +265,10 @@ export const DashboardPage: React.FC = () => {
         const allLogs = await Promise.all(
           projects.map(async (p) => {
             const res = await fetch(`${API_BASE_URL}/projects/${p.id}/alerts/logs`, {
-              headers: { Authorization: `Bearer ${session.token}` }
+              headers: { 
+                Authorization: `Bearer ${session.token}`,
+                'x-org-id': currentOrgId || ''
+              }
             });
             return res.ok ? await res.json() : [];
           })
