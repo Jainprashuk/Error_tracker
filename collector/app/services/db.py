@@ -47,6 +47,7 @@ alerts_config_collection = db["alert_configs"]
 alerts_logs_collection = db["alert_logs"]
 pending_alerts_collection = db["pending_alerts"] # 🔥 New: For reliable delivery
 performance_collection = db["performance_metrics"]  # 🚀 Dedicated performance stream
+email_logs_collection = db["email_logs"] # 📧 Communications Audit Log
 
 # 🏢 Multi-tenant Collections
 organizations_collection = db["organizations"]

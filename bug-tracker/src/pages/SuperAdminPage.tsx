@@ -69,6 +69,15 @@ export const SuperAdminPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalLogs, setTotalLogs] = useState(0);
   const [selectedLog, setSelectedLog] = useState<any>(null);
+  
+  const [emailLogs, setEmailLogs] = useState<any[]>([]);
+  const [isEmailLogsLoading, setIsEmailLogsLoading] = useState(false);
+  const [emailTotalLogs, setEmailTotalLogs] = useState(0);
+  const [emailCurrentPage, setEmailCurrentPage] = useState(1);
+  const [selectedEmailLog, setSelectedEmailLog] = useState<any>(null);
+  const [emailFilters, setEmailFilters] = useState({ type: '', recipient: '' });
+  const [showEmailFilters, setShowEmailFilters] = useState(false);
+
   const pageSize = 10;
 
   const [isLoading, setIsLoading] = useState(true);
@@ -80,6 +89,8 @@ export const SuperAdminPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    fetchEmailLogs(1);
+    fetchAIUsage(1);
   }, []);
 
   const fetchData = async () => {
@@ -151,6 +162,32 @@ export const SuperAdminPage: React.FC = () => {
       toast.error('Failed to load AI consumption data');
     } finally {
       setIsAiLoading(false);
+    }
+  };
+
+  const fetchEmailLogs = async (page: number = 1) => {
+    setIsEmailLogsLoading(true);
+    try {
+      const session = JSON.parse(localStorage.getItem('session') || '{}');
+      const params = new URLSearchParams();
+      if (emailFilters.type) params.append('type', emailFilters.type);
+      if (emailFilters.recipient) params.append('recipient', emailFilters.recipient);
+      params.append('page', page.toString());
+      params.append('page_size', pageSize.toString());
+
+      const res = await fetch(`${API_BASE_URL}/admin/email-logs?${params.toString()}`, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch email logs');
+      const data = await res.json();
+      setEmailLogs(data.logs);
+      setEmailTotalLogs(data.total);
+      setEmailCurrentPage(data.page);
+      setShowEmailFilters(false);
+    } catch (err) {
+      toast.error('Failed to load email logs');
+    } finally {
+      setIsEmailLogsLoading(false);
     }
   };
 
@@ -326,6 +363,185 @@ export const SuperAdminPage: React.FC = () => {
             <p className="text-3xl font-bold text-white mt-1">{stat.value?.toLocaleString()}</p>
           </div>
         ))}
+      </div>
+
+      {/* ── Communications Audit Log ── */}
+      <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-8 shadow-xl text-left mt-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-3">
+              <span className="text-blue-500">📧</span>
+              Communications Audit Log
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">Live monitoring of all Resend outbound email dispatches</p>
+          </div>
+          <div className="flex items-center gap-3 relative">
+            <div className="relative">
+              <button 
+                onClick={() => setShowEmailFilters(!showEmailFilters)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${showEmailFilters ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-500'}`}
+              >
+                <Layout size={14} />
+                Filters
+                {(emailFilters.type || emailFilters.recipient) && (
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-1" />
+                )}
+              </button>
+
+              {showEmailFilters && (
+                <div className="absolute right-0 mt-3 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-5 z-50 animate-in fade-in">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Email Type</label>
+                      <select 
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
+                        value={emailFilters.type}
+                        onChange={e => setEmailFilters({...emailFilters, type: e.target.value})}
+                      >
+                        <option value="">All Types</option>
+                        <option value="lifecycle">Lifecycle (Welcome)</option>
+                        <option value="alert">System Alert</option>
+                        <option value="digest">Weekly Digest</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Recipient Search</label>
+                      <input 
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-blue-500 font-mono"
+                        value={emailFilters.recipient}
+                        onChange={e => setEmailFilters({...emailFilters, recipient: e.target.value})}
+                        placeholder="john@example.com"
+                      />
+                    </div>
+
+                    <div className="pt-2 flex gap-2">
+                       <button 
+                        onClick={() => setEmailFilters({ type: '', recipient: '' })}
+                        className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 transition-colors"
+                      >
+                        Reset
+                      </button>
+                      <button 
+                        onClick={() => fetchEmailLogs(1)}
+                        className="flex-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg"
+                      >
+                        Apply Filters
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => fetchEmailLogs(1)}
+              className="w-9 h-9 flex items-center justify-center bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all border border-slate-700"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800/50">
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-2">Timestamp</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Recipient</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Type</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Subject Line</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Delivery Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/30">
+              {isEmailLogsLoading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center animate-pulse">
+                      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Loading Dispatch Records...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : emailLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center opacity-20">
+                    <Layout size={32} className="mx-auto mb-2" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest">No Outbound Emails Logged</p>
+                  </td>
+                </tr>
+              ) : (
+                emailLogs.map((log) => (
+                  <tr 
+                    key={log._id} 
+                    className="hover:bg-white/5 transition-colors cursor-pointer group"
+                    onClick={() => setSelectedEmailLog(log)}
+                  >
+                    <td className="py-4 pl-2 text-[11px] text-slate-400 font-mono whitespace-nowrap">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </td>
+                    <td className="py-4">
+                      <span className="text-[11px] font-medium text-slate-300">{log.recipient}</span>
+                    </td>
+                    <td className="py-4">
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tighter ${
+                        log.type === 'digest' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' : 
+                        log.type === 'lifecycle' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30' :
+                        log.type === 'alert' ? 'bg-red-500/10 text-red-500 border border-red-500/30' :
+                        'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}>
+                        {log.type}
+                      </span>
+                    </td>
+                    <td className="py-4">
+                      <span className="text-[11px] font-bold text-white max-w-xs block truncate">{log.subject}</span>
+                    </td>
+                    <td className="py-4">
+                      {log.status === 'sent' ? (
+                        <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Dispatch Success
+                        </span>
+                      ) : (
+                        <div className="flex flex-col">
+                          <span className="flex items-center gap-1.5 text-[10px] font-bold text-red-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Bounced / Failed
+                          </span>
+                          {log.error && <span className="text-[9px] text-slate-500 font-mono truncate max-w-[150px]">{log.error}</span>}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Pagination ── */}
+        {emailTotalLogs > pageSize && (
+          <div className="mt-8 flex items-center justify-between border-t border-slate-800/50 pt-6">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              Showing {((emailCurrentPage - 1) * pageSize) + 1} - {Math.min(emailCurrentPage * pageSize, emailTotalLogs)} of {emailTotalLogs} Records
+            </p>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => fetchEmailLogs(emailCurrentPage - 1)}
+                disabled={emailCurrentPage === 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-20 transition-all"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button 
+                onClick={() => fetchEmailLogs(emailCurrentPage + 1)}
+                disabled={emailCurrentPage * pageSize >= emailTotalLogs}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-20 transition-all"
+              >
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Gemini Consumption Intelligence ── */}
@@ -927,6 +1143,92 @@ export const SuperAdminPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── Email Detail Modal ── */}
+      {selectedEmailLog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-4xl max-h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <Layout size={16} className="text-blue-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Outbound Email Detail</h3>
+                  <p className="text-[10px] text-slate-500 font-mono tracking-tighter">{selectedEmailLog._id}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedEmailLog(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-6 space-y-6">
+              {/* Meta Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6 border-b border-slate-800/50">
+                <div className="space-y-1">
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Recipient</p>
+                  <p className="text-xs font-bold text-white">{selectedEmailLog.recipient}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Type</p>
+                  <p className="text-xs font-bold text-slate-300 capitalize">{selectedEmailLog.type}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Subject Line</p>
+                  <p className="text-xs font-medium text-slate-400 truncate w-full" title={selectedEmailLog.subject}>{selectedEmailLog.subject}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Status / Errors</p>
+                  {selectedEmailLog.status === 'sent' ? (
+                     <p className="text-xs font-bold text-emerald-400">Success</p>
+                  ) : (
+                     <p className="text-xs font-bold text-red-500">{selectedEmailLog.error || 'Failed'}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Render HTML content via iframe if exists */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  <h4 className="text-[11px] font-bold text-white uppercase tracking-widest">Email Body Render</h4>
+                </div>
+                {selectedEmailLog.content ? (
+                  <div className="bg-white rounded-xl border border-slate-700 overflow-hidden" style={{ minHeight: '400px' }}>
+                    <iframe 
+                      srcDoc={selectedEmailLog.content} 
+                      className="w-full h-full bg-white" 
+                      style={{ minHeight: '400px', border: 'none' }}
+                      sandbox="allow-same-origin"
+                      title="Email Content Preview"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center p-12 bg-slate-950/50 border border-slate-800 rounded-xl">
+                    <p className="text-slate-500 text-xs font-mono">No HTML body tracked for this log entry.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/50 flex justify-end">
+              <button 
+                onClick={() => setSelectedEmailLog(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

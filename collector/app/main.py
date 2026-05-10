@@ -19,7 +19,7 @@ from app.routes.organization_routes import router as organization_router
 from app.routes.member_routes import router as member_router
 from app.routes.admin_routes import router as admin_router
 from app.routes.ai_routes import router as ai_router
-
+from app.services.scheduler_service import start_scheduler, stop_scheduler
 
 # Configure structured logging
 structlog.configure(
@@ -63,7 +63,9 @@ class SecurityGuard(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     logger.info("service_startup", status="initializing")
     await init_db()
+    start_scheduler()
     yield
+    stop_scheduler()
     logger.info("service_shutdown")
 
 app = FastAPI(lifespan=lifespan)

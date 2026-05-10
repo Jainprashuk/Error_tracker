@@ -209,3 +209,26 @@ async def update_project_member_role_admin(project_id: str, request: ProjectMemb
         {"$set": {"role": request.role}}
     )
     return {"message": "Project member role updated"}
+
+@router.get("/email-logs")
+async def get_email_logs(
+    type: Optional[str] = None,
+    recipient: Optional[str] = None,
+    page: int = Query(1), 
+    page_size: int = Query(50), 
+    admin: dict = Depends(verify_superadmin)
+):
+    from app.services.db import email_logs_collection
+    query = {}
+    if type: query["type"] = type
+    if recipient: query["recipient"] = {"$regex": recipient, "$options": "i"}
+
+    skip = (page - 1) * page_size
+    total = await email_logs_collection.count_documents(query)
+    logs = await email_logs_collection.find(query).sort("timestamp", -1).skip(skip).limit(page_size).to_list(length=page_size)
+    return {
+        "logs": [stringify(log) for log in logs],
+        "total": total,
+        "page": page,
+        "page_size": page_size
+    }

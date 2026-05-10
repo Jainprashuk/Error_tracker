@@ -1,8 +1,22 @@
 import os
 import httpx
 from typing import List, Dict, Any
+from datetime import datetime
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+
+async def log_email_dispatch(recipients: List[str], subject: str, email_type: str, status: str = "sent", error: str = None, content: str = None):
+    from app.services.db import email_logs_collection
+    for r in recipients:
+        await email_logs_collection.insert_one({
+            "recipient": r,
+            "subject": subject,
+            "type": email_type,
+            "status": status,
+            "error": error,
+            "content": content,
+            "timestamp": datetime.utcnow()
+        })
 
 async def send_email_alert(recipients: List[str], payload: Dict[str, Any]):
     """
@@ -178,7 +192,7 @@ async def send_email_alert(recipients: List[str], payload: Dict[str, Any]):
     """
 
     data = {
-        "from": "BugTracker Alerts <onboarding@resend.dev>", # Default sender
+        "from": "BugTrace Alerts <alerts@bugtrace.jainprashuk.in>",
         "to": recipients,
         "subject": f"⚠️ [{alert_type}] {project_name}: {error_message[:40]}...",
         "html": html_content
@@ -202,10 +216,59 @@ async def send_email_alert(recipients: List[str], payload: Dict[str, Any]):
             
             if response.status_code in [200, 201]:
                 print(f"✅ Alert email sent to {len(recipients)} recipients")
+                await log_email_dispatch(recipients, data["subject"], "alert", "sent", content=data.get("html"))
                 return True
             else:
                 print(f"❌ Failed to send email via Resend: {response.text}")
+                await log_email_dispatch(recipients, data["subject"], "alert", "failed", response.text, content=data.get("html"))
                 return False
         except Exception as e:
             print(f"❌ Error sending email: {str(e)}")
+            await log_email_dispatch(recipients, data["subject"], "alert", "failed", str(e), content=data.get("html"))
             return False
+
+async def send_lifecycle_email(recipients: List[str], subject: str, html_content: str):
+    """
+    Sends generic lifecycle and engagement emails (Welcome, Onboarding, Digest) using Resend API.
+    """
+    if not RESEND_API_KEY:
+        print("❌ RESEND_API_KEY not found in environment")
+        return False
+    
+    if not recipients:
+        print("ℹ️ No recipients found for lifecycle email")
+        return False
+
+    data = {
+        "from": "BugTrace <hello@bugtrace.jainprashuk.in>",
+        "to": recipients,
+        "subject": subject,
+        "html": html_content
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            print(f"📧 [EMAIL SERVICE] Sending Lifecycle Email '{subject}' to: {recipients}")
+            
+            response = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json=data
+            )
+            
+            if response.status_code in [200, 201]:
+                print(f"✅ Lifecycle email sent to {len(recipients)} recipients")
+                await log_email_dispatch(recipients, subject, "lifecycle", "sent", content=html_content)
+                return True
+            else:
+                print(f"❌ Failed to send lifecycle email via Resend: {response.text}")
+                await log_email_dispatch(recipients, subject, "lifecycle", "failed", response.text, content=html_content)
+                return False
+        except Exception as e:
+            print(f"❌ Error sending lifecycle email: {str(e)}")
+            await log_email_dispatch(recipients, subject, "lifecycle", "failed", str(e), content=html_content)
+            return False
+
