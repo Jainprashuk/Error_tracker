@@ -83,11 +83,12 @@ class AIService:
                     async with httpx.AsyncClient() as http_client:
                         resp = await http_client.get(screenshot_url, timeout=10.0)
                         if resp.status_code == 200:
+                            from google.genai import types
                             content_type = resp.headers.get("content-type", "image/png")
-                            contents.append({
-                                "mime_type": content_type,
-                                "data": resp.content
-                            })
+                            # Format for the new google-genai library safely
+                            contents.append(
+                                types.Part.from_bytes(data=resp.content, mime_type=content_type)
+                            )
                 except Exception as img_e:
                     logger.warning("ai_screenshot_fetch_failed", error=str(img_e))
                     
