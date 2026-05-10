@@ -41,11 +41,13 @@ const PERMISSION_GUIDE = [
   { id: 'ROLE_CHANGE', label: 'Role Switcher', desc: 'Modify organization-wide roles and capabilities for any member.' },
   { id: 'ERROR_VIEW', label: 'Error Viewer', desc: 'Can see error groups, stack traces, and details (telemetry).' },
   { id: 'ERROR_RESOLVE', label: 'Error Resolver', desc: 'Authorize resolving, linking, or deleting error groupings.' },
+  { id: 'PERFORMANCE_VIEW', label: 'Performance Viewer', desc: 'Can view performance metrics, vitals, and page load telemetry.' },
   { id: 'TICKET_CREATE', label: 'Ticket Creator', desc: 'Generate 3rd party tickets (like OpenProject) from errors.' },
   { id: 'TICKET_VIEW', label: 'Ticket Viewer', desc: 'View lists of external tickets associated with projects.' },
   { id: 'API_KEY_VIEW', label: 'Credential Viewer', desc: 'Can see the raw API keys. Highly sensitive permission.' },
   { id: 'INTEGRATIONS_MANAGE', label: 'Integration Manager', desc: 'Manage 3rd party links like GitHub, Linear, or OpenProject.' },
 ];
+
 
 export const SuperAdminPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'members' | 'projects'>('members');

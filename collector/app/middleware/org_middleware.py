@@ -22,8 +22,8 @@ async def get_role_permissions(role_name: str) -> list:
     # 💡 Default safety net for development
     if not perms:
         if role_name == "admin": perms = ["*"]
-        elif role_name == "dev": perms = ["ORG_VIEW", "PROJECT_VIEW", "PROJECT_CREATE", "ERROR_VIEW", "ERROR_RESOLVE", "API_KEY_VIEW", "INTEGRATIONS_MANAGE"]
-        elif role_name == "viewer": perms = ["ORG_VIEW", "PROJECT_VIEW", "ERROR_VIEW"]
+        elif role_name == "dev": perms = ["ORG_VIEW", "PROJECT_VIEW", "PROJECT_CREATE", "ERROR_VIEW", "ERROR_RESOLVE", "PERFORMANCE_VIEW", "API_KEY_VIEW", "INTEGRATIONS_MANAGE"]
+        elif role_name == "viewer": perms = ["ORG_VIEW", "PROJECT_VIEW", "ERROR_VIEW", "PERFORMANCE_VIEW"]
 
     ROLE_CACHE[role_name] = (perms, now + CACHE_TTL)
     return perms
