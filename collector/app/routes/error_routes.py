@@ -4,6 +4,7 @@ from app.services.ticket_service import ParseError
 from app.services.db import db, projects_collection, errors_collection, events_collection
 from bson import ObjectId
 import json
+from datetime import datetime
 
 router = APIRouter()
 
@@ -26,6 +27,13 @@ async def report_error(payload: Union[ErrorPayload, List[ErrorPayload]], backgro
 
     if not project:
         raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # 📡 P0 FIX: Real integration tracking. Mark project as integrated on first successful handshake.
+    if not project.get("is_integrated"):
+        await projects_collection.update_one(
+            {"_id": project["_id"]},
+            {"$set": {"is_integrated": True, "integrated_at": datetime.utcnow()}}
+        )
 
     # 🚫 Hard boundary: performance metrics must use /report/performance
     items = payload if isinstance(payload, list) else [payload]

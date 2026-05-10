@@ -59,87 +59,80 @@ const ProjectCard: React.FC<{
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const errorBadgeVariant =
-    project.errorCount === 0 ? 'success' :
-      project.errorCount > 50 ? 'danger' :
-        project.errorCount > 10 ? 'warning' : 'info';
-
   return (
     <div
       id={`project-card-${project.id}`}
       onClick={onClick}
-      className="group relative bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10 hover:border-slate-600/70 hover:-translate-y-0.5 animate-fade-in-up"
+      className="group relative bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:border-blue-500/50 hover:bg-slate-800/80 hover:shadow-[0_0_30px_rgba(59,130,246,0.1)] hover:-translate-y-1 animate-fade-in-up"
     >
-      {/* Top accent bar */}
-      <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
-
-      {/* Header */}
-      <div className="flex items-start justify-between mb-5">
-        <div className="flex-1 min-w-0 mr-3">
-          <h3 className="text-base font-bold text-white group-hover:text-blue-300 transition-colors duration-200 truncate">
+      {/* 🚀 Status Pill */}
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors tracking-tight">
             {project.name}
           </h3>
-          <p className="text-xs text-slate-500 mt-1">
-            Created{' '}
-            {new Date(project.createdAt).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </p>
+          <div className="flex items-center gap-1.5 mt-1">
+             <div className={`w-1.5 h-1.5 rounded-full ${project.isIntegrated ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500'}`} />
+             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+               {project.isIntegrated ? 'Connected' : 'Pending'}
+             </span>
+          </div>
         </div>
-        <div className="flex-shrink-0">
-          <Badge variant={errorBadgeVariant} dot>
-            {project.errorCount} {project.errorCount === 1 ? 'error' : 'errors'}
-          </Badge>
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            Created {new Date(project.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        <div className="bg-slate-900/50 rounded-xl p-3 border border-slate-700/40">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Total Errors</p>
-          <p className={`text-xl font-bold ${project.errorCount === 0 ? 'text-emerald-400' :
-            project.errorCount > 50 ? 'text-red-400' :
-              project.errorCount >
-                10 ? 'text-amber-400' : 'text-blue-400'
-            }`}>
-            {project.errorCount}
-          </p>
+      {/* 📊 Metrics Container */}
+      <div className="flex gap-4 mb-6">
+        <div className="flex-1">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Errors</p>
+          <div className="flex items-baseline gap-1">
+            <span className={`text-3xl font-black ${project.errorCount > 0 ? 'text-red-400' : 'text-slate-300'}`}>
+              {project.errorCount}
+            </span>
+            <span className="text-xs font-bold text-slate-600">Total</span>
+          </div>
         </div>
-        <div className="bg-slate-900/50 rounded-xl p-3 border border-slate-700/40">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Last Seen</p>
-          <p className="text-sm font-semibold text-slate-300">
-            {project.lastSeen
-              ? new Date(project.lastSeen).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-              : '—'}
-          </p>
+        <div className="flex-1 border-l border-slate-700/50 pl-4">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Last Activity</p>
+          <span className="text-sm font-bold text-slate-300 block mt-1.5">
+            {project.lastSeen ? new Date(project.lastSeen).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Never'}
+          </span>
         </div>
       </div>
 
-      {/* API Key row */}
-      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        <code className="flex-1 text-[10px] font-mono text-slate-500 bg-slate-900/60 border border-slate-700/40 rounded-lg px-3 py-2 truncate tracking-widest">
-          {revealed ? project.apiKey : '•'.repeat(28)}
-        </code>
-        <button
-          onClick={(e) => { e.stopPropagation(); setRevealed((r) => !r); }}
-          title={revealed ? 'Hide API key' : 'Reveal API key'}
-          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-slate-700/60 border border-slate-600/50 text-slate-400 hover:bg-slate-600/70 hover:text-white transition-all duration-150 active:scale-95"
-        >
-          {revealed ? <EyeOff size={12} /> : <Eye size={12} />}
-        </button>
-        <button
-          onClick={handleCopyKey}
-          className="flex-shrink-0 px-3 py-2 text-[10px] font-semibold rounded-lg bg-slate-700/60 border border-slate-600/50 text-slate-300 hover:bg-slate-600/70 hover:text-white transition-all duration-150 active:scale-95"
-        >
-          {copied ? '✓' : 'Copy'}
-        </button>
+      {/* 🔐 Ingestion Key Section */}
+      <div className="relative group/key" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 bg-black/40 border border-slate-700/50 rounded-xl px-3 py-2.5 transition-all group-hover/key:border-slate-600">
+          <div className="flex-1 overflow-hidden">
+            <code className="text-[11px] font-mono text-slate-500 block truncate">
+              {revealed ? project.apiKey : '••••••••••••••••••••••••'}
+            </code>
+          </div>
+          <div className="flex items-center gap-1">
+             <button
+                onClick={(e) => { e.stopPropagation(); setRevealed(!revealed); }}
+                className="p-1.5 text-slate-500 hover:text-white transition-colors"
+             >
+               {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
+             </button>
+             <button
+               onClick={handleCopyKey}
+               className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
+                 copied ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+               }`}
+             >
+               {copied ? 'Copied' : 'Copy'}
+             </button>
+          </div>
+        </div>
       </div>
-
-      {/* View arrow */}
-      <div className="absolute bottom-5 right-5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-1 group-hover:translate-x-0">
-        <ArrowRight size={16} className="text-blue-400" />
+      
+      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+        <ArrowRight size={18} className="text-blue-500/50" />
       </div>
     </div>
   );
@@ -204,6 +197,7 @@ export const DashboardPage: React.FC = () => {
           errorCount: 0,
           lastSeen: p.lastSeen || null,
           my_project_role: p.my_project_role,
+          isIntegrated: p.is_integrated,
         }))
         : [];
 

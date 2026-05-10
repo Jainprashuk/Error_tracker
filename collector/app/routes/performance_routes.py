@@ -66,6 +66,13 @@ async def ingest_performance(
     if not project:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
+    # 📡 P0 FIX: Integration tracking for performance-only projects.
+    if not project.get("is_integrated"):
+        await projects_collection.update_one(
+            {"_id": project["_id"]},
+            {"$set": {"is_integrated": True, "integrated_at": datetime.utcnow()}}
+        )
+
     project_id = project["_id"]
 
     items = payload if isinstance(payload, list) else [payload]

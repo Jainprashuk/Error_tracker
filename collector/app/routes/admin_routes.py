@@ -42,6 +42,21 @@ def stringify(doc):
     if "project_id" in doc: doc["project_id"] = str(doc["project_id"])
     return doc
 
+async def enrich_project(p):
+    if not p: return p
+    # 📡 P0 FIX: Core integration tracking with legacy fallback.
+    if "is_integrated" in p:
+        p["is_integrated"] = bool(p["is_integrated"])
+    else:
+        # Legacy fallback: check data and update DB
+        from app.services.db import errors_collection, projects_collection
+        has_data = await errors_collection.find_one({"project_id": p["_id"]})
+        p["is_integrated"] = bool(has_data)
+        if has_data:
+             await projects_collection.update_one({"_id": p["_id"]}, {"$set": {"is_integrated": True}})
+    
+    return stringify(p)
+
 # ─── ROUTES ───
 
 @router.get("/stats")
@@ -112,12 +127,12 @@ async def update_org_member_role_admin(org_id: str, request: OrgMemberRoleReques
 @router.get("/org/{org_id}/projects")
 async def list_org_projects_admin(org_id: str, admin: dict = Depends(verify_superadmin)):
     projects = await projects_collection.find({"org_id": ObjectId(org_id)}).to_list(length=100)
-    return [stringify(p) for p in projects]
+    return [await enrich_project(p) for p in projects]
 
 @router.get("/projects")
 async def list_all_projects(admin: dict = Depends(verify_superadmin)):
     projects = await projects_collection.find({}).to_list(length=1000)
-    return [stringify(p) for p in projects]
+    return [await enrich_project(p) for p in projects]
 
 @router.get("/users")
 async def list_all_users(admin: dict = Depends(verify_superadmin)):

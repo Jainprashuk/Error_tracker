@@ -11,6 +11,7 @@ export interface Project {
   errorCount: number;
   lastSeen: string | null;
   my_project_role?: string;
+  isIntegrated?: boolean;
 }
 
 export interface Error {

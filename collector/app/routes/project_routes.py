@@ -87,15 +87,22 @@ async def list_org_projects(
             if not has_api_permission:
                 p["api_key"] = "•••••••••••••••• (Restricted)"
 
-            # Handle integrations
-            if p.get("integrations") and isinstance(p["integrations"], dict):
-                op = p["integrations"].get("openproject")
-                if op and isinstance(op, dict) and op.get("api_key"):
-                    try:
-                        raw_key = decrypt_data(op["api_key"])
-                        op["api_key"] = encrypt_data(raw_key)
-                    except:
-                        pass
+            # 📡 P0 FIX: Multi-stream integration tracking with legacy fallback.
+            # Check both Errors and Performance collections to handle healthy vs integrated.
+            if p.get("is_integrated") is not None:
+                p["is_integrated"] = bool(p["is_integrated"])
+            else:
+                # Legacy fallback: Check both telemetry streams
+                # Note: p["_id"] is already stringified here so we must cast it back to ObjectId
+                has_errors = await errors_collection.find_one({"project_id": ObjectId(p["_id"])})
+                has_perf = await performance_collection.find_one({"project_id": ObjectId(p["_id"])})
+                is_integrated = bool(has_errors or has_perf)
+                p["is_integrated"] = is_integrated
+                
+                # Proactively persist for next time
+                if is_integrated:
+                    await projects_collection.update_one({"_id": ObjectId(p["_id"])}, {"$set": {"is_integrated": True}})
+
             sanitized_projects.append(p)
         except Exception as e:
             print(f"Error sanitizing project: {e}")
