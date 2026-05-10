@@ -3,6 +3,7 @@ from google import genai
 import structlog
 from typing import List, Dict, Any
 import json
+import httpx
 
 logger = structlog.get_logger()
 
@@ -33,11 +34,18 @@ class AIService:
         message = error_obj.get('message') or error_data.get('message')
         stack = error_obj.get('stack') or error_data.get('stack')
         client_url = (error_data.get('request') or {}).get('url') or error_data.get('client_url')
+        
+        # Extract rich context for advanced diagnosis
+        client_obj = error_data.get('client') or {}
+        req_obj = error_data.get('request') or {}
+        screenshot_url = error_data.get('screenshot_url')
 
         try:
             # 💡 P0 FIX: String formatting with json.dumps can fail if breadcrumbs contain non-serializable types (like Dates/ObjectIDs)
             # Move it inside the try block to catch these failures.
             safe_breadcrumbs = json.loads(json.dumps(breadcrumbs, default=str))
+            safe_client = json.loads(json.dumps(client_obj, default=str))
+            safe_request = json.loads(json.dumps(req_obj, default=str))
             
             prompt = f"""
             You are a Principal Software Engineer specialized in Post-Mortem Debugging.
@@ -46,15 +54,18 @@ class AIService:
             - Error Message: {message}
             - Stack Trace: {stack}
             - App URL: {client_url}
+            - Env Context (Browser, OS, Device): {json.dumps(safe_client)}
+            - Request Network Meta (Headers, Body): {json.dumps(safe_request)}
             - User Navigation (Breadcrumbs): {json.dumps(safe_breadcrumbs)}
             
             CRITICAL RULES:
             1. Analyze the SPECIFIC stack trace provided. Do not give generic advice. IF STACK IS EMPTY, identify that you lack context.
-            2. Look for patterns in breadcrumbs leading to the crash.
-            3. If the error is 'Failed to fetch', focus on Network, CORS, or Server availability.
+            2. Examine the Env Context to determine if this is a browser/OS specific issue.
+            3. Look at Request Network Meta for malformed payloads, missing headers, or CORS issues.
+            4. Look for patterns in breadcrumbs leading to the crash.
             
             TASK:
-            1. "problem": Explain exactly why this specific error happened based on the stack.
+            1. "problem": Explain exactly why this specific error happened based on the stack and context (if relevant).
             2. "solution": Provide a concrete, actionable code or config fix.
             
             FORMAT (JSON ONLY):
@@ -64,7 +75,23 @@ class AIService:
             }}
             """
             
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
+            contents = [prompt]
+            
+            # Fetch screenshot dynamically to provide multimodal visual context to Gemini
+            if screenshot_url:
+                try:
+                    async with httpx.AsyncClient() as http_client:
+                        resp = await http_client.get(screenshot_url, timeout=10.0)
+                        if resp.status_code == 200:
+                            content_type = resp.headers.get("content-type", "image/png")
+                            contents.append({
+                                "mime_type": content_type,
+                                "data": resp.content
+                            })
+                except Exception as img_e:
+                    logger.warning("ai_screenshot_fetch_failed", error=str(img_e))
+                    
+            response = self.client.models.generate_content(model=self.model_name, contents=contents)
             text = response.text.replace('```json', '').replace('```', '').strip()
             result = json.loads(text)
             return {"result": result, "prompt": prompt, "response": response.text}
