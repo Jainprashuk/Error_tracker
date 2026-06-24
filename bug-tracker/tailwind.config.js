@@ -20,8 +20,18 @@ export default {
         'fade-in': 'fadeIn 0.3s ease forwards',
         'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
         'shimmer': 'shimmer 2s linear infinite',
+        'marquee-left': 'marqueeLeft 30s linear infinite',
+        'marquee-right': 'marqueeRight 30s linear infinite',
       },
       keyframes: {
+        marqueeLeft: {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(-50%)' },
+        },
+        marqueeRight: {
+          from: { transform: 'translateX(-50%)' },
+          to: { transform: 'translateX(0)' },
+        },
         fadeInUp: {
           from: { opacity: '0', transform: 'translateY(16px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
