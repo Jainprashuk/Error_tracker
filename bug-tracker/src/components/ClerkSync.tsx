@@ -70,8 +70,13 @@ export const ClerkSync: React.FC = () => {
 
                         setOrganizations(orgs);
 
-                        if (!currentOrgId && orgs.length > 0) {
-                            setCurrentOrgId(orgs[0]._id);
+                        // Select the first org by default, and also correct a stale
+                        // persisted currentOrgId that isn't in the freshly-fetched list.
+                        if (orgs.length > 0) {
+                            const isValidSelection = currentOrgId && orgs.some((o: any) => o._id === currentOrgId);
+                            if (!isValidSelection) {
+                                setCurrentOrgId(orgs[0]._id);
+                            }
                         }
 
                         localStorage.setItem("session", JSON.stringify({

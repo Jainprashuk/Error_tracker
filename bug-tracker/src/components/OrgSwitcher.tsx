@@ -17,9 +17,13 @@ export const OrgSwitcher: React.FC = () => {
 
   const orgsList = Array.isArray(organizations) ? organizations : [];
 
-  // Auto select first organization
+  // Auto select first organization.
+  // Also re-selects when the persisted currentOrgId is stale (points to an org
+  // the user is no longer part of), otherwise the switcher renders empty.
   React.useEffect(() => {
-    if (!currentOrgId && orgsList.length > 0) {
+    if (orgsList.length === 0) return;
+    const isValidSelection = currentOrgId && orgsList.some(o => o._id === currentOrgId);
+    if (!isValidSelection) {
       setCurrentOrgId(orgsList[0]._id);
     }
   }, [currentOrgId, orgsList, setCurrentOrgId]);
