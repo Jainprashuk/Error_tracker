@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, BackgroundTasks
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
@@ -6,6 +6,7 @@ from bson import ObjectId
 from app.services.db import db, org_members_collection, project_members_collection, users_collection, projects_collection, org_invitations_collection, organizations_collection
 from app.routes.auth_routes import verify_token
 from app.middleware.org_middleware import verify_org_membership
+from app.services.email_service import send_lifecycle_email
 
 router = APIRouter(prefix="/members", tags=["Members"])
 
@@ -69,6 +70,7 @@ async def update_member_role(
 @router.post("/org")
 async def add_org_member(
     request: AddOrgMemberRequest,
+    bg_tasks: BackgroundTasks,
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(required_permission="ORG_MANAGE"))
 ):
@@ -104,7 +106,65 @@ async def add_org_member(
         "created_at": datetime.utcnow()
     }
     await org_invitations_collection.insert_one(invite_doc)
-    
+
+    # --- Dispatch invitation email (best-effort, non-blocking) ---
+    org = await organizations_collection.find_one({"_id": ObjectId(x_org_id)})
+    org_name = org.get("name", "an organization") if org else "an organization"
+
+    inviter = await users_collection.find_one({"_id": ObjectId(org_membership["user_id"])})
+    inviter_name = (inviter.get("name") or inviter.get("email", "A teammate")) if inviter else "A teammate"
+
+    invitee_name = user.get("name") or request.email.split("@")[0]
+
+    invite_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="margin: 0; padding: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f1f5f9;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); padding: 32px 20px; text-align: center;">
+                <div style="display: inline-block; background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.4); border-radius: 999px; padding: 5px 14px; margin-bottom: 18px;">
+                    <span style="color: #93c5fd; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">Team Invitation</span>
+                </div>
+                <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 800; line-height: 1.3;">You're invited to<br>join {org_name} 🎉</h1>
+                <p style="color: #94a3b8; font-size: 14px; margin-top: 12px; line-height: 1.6; margin-bottom: 0;"><strong style="color: #e2e8f0;">{inviter_name}</strong> has invited you to collaborate on BugTrace.</p>
+            </div>
+
+            <div style="padding: 24px 20px;">
+                <p style="color: #475569; font-size: 14px; line-height: 1.7; margin-top: 0;">
+                    Hi {invitee_name}, you've been invited to join <strong style="color: #0f172a;">{org_name}</strong> as a <strong style="color: #0f172a;">{request.role}</strong>.
+                </p>
+
+                <div style="margin: 20px 0; padding: 14px 16px; background: #f8fafc; border-radius: 10px; border-left: 3px solid #3b82f6;">
+                    <p style="margin: 0; color: #64748b; font-size: 13px; line-height: 1.6;">
+                        Open your BugTrace dashboard and head to <strong style="color: #0f172a;">Pending Invitations</strong> to accept or decline this invite.
+                    </p>
+                </div>
+
+                <div style="text-align: center; margin: 28px 0 16px;">
+                    <a href="https://bugtrace.jainprashuk.in/" style="display: inline-block; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; padding: 13px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 14px rgba(59,130,246,0.4);">Review Invitation →</a>
+                </div>
+
+                <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 20px; margin-bottom: 0;">
+                    If you weren't expecting this, you can safely ignore this email.
+                </p>
+            </div>
+
+            <div style="background: #f8fafc; padding: 14px 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+                <p style="color: #94a3b8; font-size: 11px; margin: 0;">© 2025 BugTrace · bugtrace.jainprashuk.in</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    bg_tasks.add_task(
+        send_lifecycle_email,
+        [request.email],
+        f"🎉 {inviter_name} invited you to join {org_name} on BugTrace",
+        invite_html,
+        "invitation"
+    )
+
     return {"message": f"Invitation sent to {request.email}."}
 
 @router.get("/invitations")

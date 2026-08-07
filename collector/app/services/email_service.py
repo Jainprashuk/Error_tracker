@@ -227,14 +227,15 @@ async def send_email_alert(recipients: List[str], payload: Dict[str, Any]):
             await log_email_dispatch(recipients, data["subject"], "alert", "failed", str(e), content=data.get("html"))
             return False
 
-async def send_lifecycle_email(recipients: List[str], subject: str, html_content: str):
+async def send_lifecycle_email(recipients: List[str], subject: str, html_content: str, email_type: str = "lifecycle"):
     """
-    Sends generic lifecycle and engagement emails (Welcome, Onboarding, Digest) using Resend API.
+    Sends generic lifecycle and engagement emails (Welcome, Onboarding, Digest, Invitations) using Resend API.
+    `email_type` controls how the send is categorized in email_logs (e.g. "lifecycle", "invitation").
     """
     if not RESEND_API_KEY:
         print("❌ RESEND_API_KEY not found in environment")
         return False
-    
+
     if not recipients:
         print("ℹ️ No recipients found for lifecycle email")
         return False
@@ -248,8 +249,8 @@ async def send_lifecycle_email(recipients: List[str], subject: str, html_content
 
     async with httpx.AsyncClient() as client:
         try:
-            print(f"📧 [EMAIL SERVICE] Sending Lifecycle Email '{subject}' to: {recipients}")
-            
+            print(f"📧 [EMAIL SERVICE] Sending {email_type} Email '{subject}' to: {recipients}")
+
             response = await client.post(
                 "https://api.resend.com/emails",
                 headers={
@@ -258,17 +259,17 @@ async def send_lifecycle_email(recipients: List[str], subject: str, html_content
                 },
                 json=data
             )
-            
+
             if response.status_code in [200, 201]:
-                print(f"✅ Lifecycle email sent to {len(recipients)} recipients")
-                await log_email_dispatch(recipients, subject, "lifecycle", "sent", content=html_content)
+                print(f"✅ {email_type} email sent to {len(recipients)} recipients")
+                await log_email_dispatch(recipients, subject, email_type, "sent", content=html_content)
                 return True
             else:
-                print(f"❌ Failed to send lifecycle email via Resend: {response.text}")
-                await log_email_dispatch(recipients, subject, "lifecycle", "failed", response.text, content=html_content)
+                print(f"❌ Failed to send {email_type} email via Resend: {response.text}")
+                await log_email_dispatch(recipients, subject, email_type, "failed", response.text, content=html_content)
                 return False
         except Exception as e:
-            print(f"❌ Error sending lifecycle email: {str(e)}")
-            await log_email_dispatch(recipients, subject, "lifecycle", "failed", str(e), content=html_content)
+            print(f"❌ Error sending {email_type} email: {str(e)}")
+            await log_email_dispatch(recipients, subject, email_type, "failed", str(e), content=html_content)
             return False
 
