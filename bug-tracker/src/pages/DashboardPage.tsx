@@ -5,16 +5,18 @@ import {
   ArrowRight, Activity, Zap, RefreshCw, Eye, EyeOff, Bell, MessageSquare, X, Cpu
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
-import { Card, Button, Skeleton, StatCard, EmptyState, Badge } from '../components/ui';
+import { Card, Button, Skeleton, EmptyState, Badge } from '../components/ui';
 import { CreateProjectModal } from '../components/CreateProjectModal';
 import { PendingInvites } from '../components/PendingInvites';
 import { useAuthStore } from '../store/auth';
 import type { Project } from '../types';
 import { ResponsiveContainer } from 'recharts';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import toast from 'react-hot-toast';
 import { encrypt } from '../utils/crypto';
+import { formatRelativeDate } from '../utils/time';
 import { AIInsightCard } from '../components/AIInsightCard';
+import { useCountUp } from '../hooks/useCountUp';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -37,18 +39,19 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 
-const buildProjectChartData = (projects: Project[]) => {
-  return projects.map((p) => ({
-    name: p.name.length > 10 ? p.name.slice(0, 10) + '...' : p.name,
-    errors: p.errorCount,
-  }));
+const AnimatedStat: React.FC<{ value: number; active: boolean }> = ({ value, active }) => {
+  const display = useCountUp(value, active, 700);
+  return <>{display}</>;
 };
 
 // ── Project card component ───────────────────────────────────────
 const ProjectCard: React.FC<{
   project: Project;
   onClick: () => void;
-}> = ({ project, onClick }) => {
+  delayMs?: number;
+  avgErrors: number;
+  sparkline?: { date: string; count: number }[];
+}> = ({ project, onClick, delayMs = 0, avgErrors, sparkline = [] }) => {
   const [copied, setCopied] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
@@ -59,80 +62,93 @@ const ProjectCard: React.FC<{
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Severity is relative to the org, not an absolute color for any nonzero count —
+  // a project with 4 errors shouldn't look as urgent as one with 47.
+  const severity =
+    project.errorCount === 0 ? 'none' : project.errorCount > Math.max(avgErrors, 1) ? 'high' : 'low';
+  const severityText = { none: 'text-emerald-400', low: 'text-amber-400', high: 'text-red-400' }[severity];
+  const severityBorder = { none: 'border-l-emerald-500', low: 'border-l-amber-500', high: 'border-l-red-500' }[severity];
+  const severityStroke = { none: '#34d399', low: '#fbbf24', high: '#f87171' }[severity];
+
+  const activity = formatRelativeDate(project.lastSeen);
+  const isStale = project.isIntegrated && activity.days >= 14 && activity.days !== Infinity;
+
   return (
     <div
       id={`project-card-${project.id}`}
       onClick={onClick}
-      className="group relative bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:border-blue-500/50 hover:bg-slate-800/80 hover:shadow-[0_0_30px_rgba(59,130,246,0.1)] hover:-translate-y-1 animate-fade-in-up"
+      style={{ animationDelay: `${delayMs}ms` }}
+      className={`group relative bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 border-l-[3px] ${severityBorder} rounded-xl p-5 cursor-pointer transition-all duration-300 hover:border-slate-600/70 hover:bg-slate-800/80 hover:-translate-y-0.5 animate-fade-in-up`}
     >
-      {/* 🚀 Status Pill */}
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors tracking-tight">
+      {/* ── Header ── */}
+      <div className="flex justify-between items-start mb-4">
+        <div className="min-w-0">
+          <h3 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors truncate">
             {project.name}
           </h3>
-          <div className="flex items-center gap-1.5 mt-1">
-             <div className={`w-1.5 h-1.5 rounded-full ${project.isIntegrated ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500'}`} />
-             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-               {project.isIntegrated ? 'Connected' : 'Pending'}
-             </span>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-            Created {new Date(project.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-          </span>
-        </div>
-      </div>
-
-      {/* 📊 Metrics Container */}
-      <div className="flex gap-4 mb-6">
-        <div className="flex-1">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Errors</p>
-          <div className="flex items-baseline gap-1">
-            <span className={`text-3xl font-black ${project.errorCount > 0 ? 'text-red-400' : 'text-slate-300'}`}>
-              {project.errorCount}
+          <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-500">
+            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${project.isIntegrated ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            <span>{project.isIntegrated ? 'Connected' : 'Pending'}</span>
+            <span className="text-slate-700">·</span>
+            <span className={isStale ? 'text-amber-400 font-medium' : ''}>
+              {isStale ? `Stale · ${activity.label}` : activity.label}
             </span>
-            <span className="text-xs font-bold text-slate-600">Total</span>
           </div>
         </div>
-        <div className="flex-1 border-l border-slate-700/50 pl-4">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Last Activity</p>
-          <span className="text-sm font-bold text-slate-300 block mt-1.5">
-            {project.lastSeen ? new Date(project.lastSeen).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Never'}
-          </span>
-        </div>
+        <ArrowRight size={16} className="text-slate-600 opacity-0 group-hover:opacity-100 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
       </div>
 
-      {/* 🔐 Ingestion Key Section */}
-      <div className="relative group/key" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2 bg-black/40 border border-slate-700/50 rounded-xl px-3 py-2.5 transition-all group-hover/key:border-slate-600">
-          <div className="flex-1 overflow-hidden">
-            <code className="text-[11px] font-mono text-slate-500 block truncate">
-              {revealed ? project.apiKey : '••••••••••••••••••••••••'}
-            </code>
-          </div>
-          <div className="flex items-center gap-1">
-             <button
-                onClick={(e) => { e.stopPropagation(); setRevealed(!revealed); }}
-                className="p-1.5 text-slate-500 hover:text-white transition-colors"
-             >
-               {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
-             </button>
-             <button
-               onClick={handleCopyKey}
-               className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
-                 copied ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-               }`}
-             >
-               {copied ? 'Copied' : 'Copy'}
-             </button>
-          </div>
+      {/* ── Errors + sparkline ── */}
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          <p className={`text-3xl font-black leading-none ${severityText}`}>{project.errorCount}</p>
+          <p className="text-xs text-slate-500 mt-1">errors total</p>
         </div>
+        {sparkline.length > 1 && (
+          <div className="w-24 h-9">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={sparkline.slice(-7)} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id={`spark-${project.id}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={severityStroke} stopOpacity={0.35} />
+                    <stop offset="100%" stopColor={severityStroke} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke={severityStroke}
+                  strokeWidth={1.5}
+                  fill={`url(#spark-${project.id})`}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
-      
-      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        <ArrowRight size={18} className="text-blue-500/50" />
+
+      {/* ── Ingestion key ── */}
+      <div
+        className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <code className="flex-1 text-xs font-mono text-slate-500 truncate">
+          {revealed ? project.apiKey : '••••••••••••••••••••••••'}
+        </code>
+        <button
+          onClick={(e) => { e.stopPropagation(); setRevealed(!revealed); }}
+          className="text-slate-500 hover:text-white transition-colors"
+        >
+          {revealed ? <EyeOff size={13} /> : <Eye size={13} />}
+        </button>
+        <button
+          onClick={handleCopyKey}
+          className={`text-xs font-medium transition-colors ${copied ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}`}
+        >
+          {copied ? 'Copied' : 'Copy'}
+        </button>
       </div>
     </div>
   );
@@ -148,14 +164,43 @@ export const DashboardPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [trendData, setTrendData] = useState<{ date: string; count: number }[]>([]);
+  const [trendByProject, setTrendByProject] = useState<Record<string, { date: string; count: number }[]>>({});
+  const [trendPct, setTrendPct] = useState<number | null>(null);
+  const [topErrors, setTopErrors] = useState<{
+    fingerprint: string;
+    eventType: string;
+    message: string;
+    occurrences: number;
+    lastSeen: string | null;
+    projectId: string;
+    projectName: string;
+  }[]>([]);
   const [alertLogs, setAlertLogs] = useState<any[]>([]);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [isLogsLoading, setIsLogsLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [, forceTick] = useState(0);
 
   useEffect(() => {
     loadProjects();
   }, [user, currentOrgId]);
+
+  useEffect(() => {
+    const interval = setInterval(() => forceTick((n) => n + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatLastUpdated = (date: Date | null) => {
+    if (!date) return null;
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 10) return 'just now';
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
+  };
 
   const loadProjects = async (silent = false) => {
     const { currentOrgId } = useAuthStore.getState();
@@ -203,47 +248,77 @@ export const DashboardPage: React.FC = () => {
 
       setProjects(mappedProjects);
 
-      if (token) {
-        let totalErrorsLast24Hours = 0;
-        const now = new Date();
-        const last24HoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        const allRawErrors: any[] = []; 
+      if (token && mappedProjects.length > 0) {
+        // Single aggregate call replaces one /errors fetch per project.
+        const statsRes = await fetch(`${API_BASE_URL}/projects/stats`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'x-org-id': currentOrgId
+          },
+        });
 
-        const projectsWithCounts = await Promise.all(
-          mappedProjects.map(async (project) => {
-            try {
-              const errorsRes = await fetch(`${API_BASE_URL}/projects/${project.id}/errors`, {
-                headers: { 
-                  Authorization: `Bearer ${token}`, 
-                  'Content-Type': 'application/json',
-                  'x-org-id': currentOrgId
-                },
-              });
-              if (errorsRes.ok) {
-                const errorsData = await errorsRes.json();
-                const errors = errorsData.data || (Array.isArray(errorsData) ? errorsData : []);
-                allRawErrors.push(...errors);
-                errors.forEach((err: any) => {
-                  const lastSeen = new Date(err.last_seen || err.lastSeen);
-                  if (lastSeen >= last24HoursAgo) totalErrorsLast24Hours++;
-                });
-                const latestSeen = errors.reduce((latest: string | null, err: any) => {
-                  const ts = err.last_seen || err.lastSeen;
-                  if (!ts) return latest;
-                  if (!latest) return ts;
-                  return new Date(ts) > new Date(latest) ? ts : latest;
-                }, null);
-                return { ...project, errorCount: errorsData.total || errors.length, lastSeen: latestSeen };
-              }
-            } catch { }
-            return project;
-          })
+        const statsByProjectId: Record<string, { errorCount: number; lastSeen: string | null; count24h: number }> =
+          statsRes.ok ? await statsRes.json() : {};
+
+        const projectsWithCounts = mappedProjects.map((project) => {
+          const stats = statsByProjectId[project.id];
+          return stats
+            ? { ...project, errorCount: stats.errorCount, lastSeen: stats.lastSeen }
+            : project;
+        });
+
+        const totalErrorsLast24Hours = Object.values(statsByProjectId).reduce(
+          (sum, s) => sum + (s.count24h || 0),
+          0
         );
 
         setProjects(projectsWithCounts);
         setAllErrors([{ count24h: totalErrorsLast24Hours }]);
-        setChartData(buildProjectChartData(projectsWithCounts));
+
+        // Daily error-event trend for the last 14 days, used for both the
+        // chart and a real (not fabricated) day-over-day trend indicator.
+        const trendsRes = await fetch(`${API_BASE_URL}/projects/trends?days=14`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'x-org-id': currentOrgId
+          },
+        });
+
+        const trendsJson: { org: { date: string; count: number }[]; byProject: Record<string, { date: string; count: number }[]> } =
+          trendsRes.ok ? await trendsRes.json() : { org: [], byProject: {} };
+        const series = trendsJson.org;
+        setTrendData(series);
+        setTrendByProject(trendsJson.byProject || {});
+
+        if (series.length >= 2) {
+          const today = series[series.length - 1].count;
+          const yesterday = series[series.length - 2].count;
+          if (yesterday > 0) {
+            setTrendPct(Math.round(((today - yesterday) / yesterday) * 100));
+          } else if (today > 0) {
+            setTrendPct(100);
+          } else {
+            setTrendPct(0);
+          }
+        } else {
+          setTrendPct(null);
+        }
+
+        // Most recently active errors across the org, for the at-a-glance feed.
+        const topErrorsRes = await fetch(`${API_BASE_URL}/projects/top-errors?limit=5`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'x-org-id': currentOrgId
+          },
+        });
+        setTopErrors(topErrorsRes.ok ? await topErrorsRes.json() : []);
+      } else {
+        setTopErrors([]);
       }
+      setLastUpdated(new Date());
     } catch (err) {
       console.error('Failed to load projects:', err);
       toast.error('Failed to load projects');
@@ -396,7 +471,7 @@ export const DashboardPage: React.FC = () => {
           <PendingInvites />
 
           {/* ── Header ── */}
-          <div className="flex items-start justify-between animate-fade-in-up relative z-50">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 animate-fade-in-up relative z-50">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs text-slate-500 font-medium uppercase tracking-widest">Overview</span>
@@ -409,11 +484,18 @@ export const DashboardPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-3 relative">
+            <div className="flex items-center gap-3 relative flex-wrap sm:flex-nowrap">
+              {lastUpdated && (
+                <span className="text-xs text-slate-500 hidden sm:inline">
+                  Updated {formatLastUpdated(lastUpdated)}
+                </span>
+              )}
               <button
                 id="dashboard-refresh-btn"
                 onClick={() => loadProjects(true)}
                 disabled={isRefreshing}
+                aria-label="Refresh dashboard data"
+                title="Refresh"
                 className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800/60 border border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600/70 transition-all duration-200 active:scale-95"
               >
                 <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
@@ -422,6 +504,8 @@ export const DashboardPage: React.FC = () => {
               <div className="relative">
                 <button
                   onClick={fetchAlertLogs}
+                  aria-label="View alert history"
+                  title="Alert history"
                   className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 border ${isAlertsOpen
                     ? "bg-blue-600/20 border-blue-500/50 text-blue-400"
                     : "bg-slate-800/60 border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600/70"
@@ -434,61 +518,57 @@ export const DashboardPage: React.FC = () => {
                 </button>
 
                 {isAlertsOpen && (
-                  <div
-                    className="absolute right-0 mt-3 w-[400px] border border-slate-700/80 rounded-2xl shadow-[0_50px_120px_rgba(0,0,0,1)] z-[300] overflow-hidden animate-fade-in-up origin-top-right ring-4 ring-white/5"
-                    style={{ backgroundColor: '#020617', opacity: 1 }}
-                  >
-                    <div className="px-6 py-5 border-b border-slate-800 bg-[#0f172a] flex items-center justify-between">
-                      <h3 className="text-sm font-black text-white flex items-center gap-3 tracking-widest uppercase">
-                        <MessageSquare size={18} className="text-blue-400" />
-                        Live Alert Center
+                  <div className="absolute right-0 mt-3 w-[400px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-xl z-[300] overflow-hidden animate-fade-in-up origin-top-right">
+                    <div className="px-5 py-4 border-b border-slate-700/40 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-white flex items-center gap-2.5">
+                        <MessageSquare size={16} className="text-blue-400" />
+                        Alert History
                       </h3>
-                      <button onClick={() => setIsAlertsOpen(false)} className="text-slate-500 hover:text-white transition-colors bg-slate-800/80 p-1.5 rounded-lg hover:bg-slate-700">
-                        <X size={20} />
+                      <button onClick={() => setIsAlertsOpen(false)} className="text-slate-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800">
+                        <X size={18} />
                       </button>
                     </div>
-                    <div className="max-h-[480px] overflow-y-auto" style={{ backgroundColor: '#020617' }}>
+                    <div className="max-h-[480px] overflow-y-auto">
                       {isLogsLoading ? (
-                        <div className="p-16 flex flex-col items-center justify-center gap-4">
-                          <RefreshCw className="animate-spin text-blue-500" size={32} />
-                          <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em]">INITIALIZING FEED...</p>
+                        <div className="p-14 flex flex-col items-center justify-center gap-3">
+                          <RefreshCw className="animate-spin text-blue-500" size={24} />
+                          <p className="text-xs text-slate-500">Loading alerts...</p>
                         </div>
                       ) : alertLogs.length === 0 ? (
-                        <div className="p-16 text-center">
-                          <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-slate-800 shadow-inner">
-                            <Bell size={28} className="text-slate-700" />
+                        <div className="p-14 text-center">
+                          <div className="w-14 h-14 bg-slate-800/60 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-700/50">
+                            <Bell size={24} className="text-slate-600" />
                           </div>
-                          <p className="text-sm text-slate-400 font-black tracking-tight">QUIET BEFORE THE STORM</p>
-                          <p className="text-[10px] text-slate-600 mt-1 font-bold">No critical events detected</p>
+                          <p className="text-sm text-slate-300 font-medium">No alerts yet</p>
+                          <p className="text-xs text-slate-500 mt-1">You'll see new errors and spikes here</p>
                         </div>
                       ) : (
-                        <div className="divide-y divide-slate-800/80">
+                        <div className="divide-y divide-slate-800">
                           {alertLogs.map((log, i) => (
-                            <div key={i} className="p-6 transition-all cursor-default group border-b border-slate-900 bg-[#020617] hover:bg-[#0f172a]">
-                              <div className="flex items-center justify-between mb-3">
+                            <div key={i} className="p-5 transition-colors cursor-default group hover:bg-slate-800/40">
+                              <div className="flex items-center justify-between mb-2.5">
                                 <div className="flex items-center gap-2">
-                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded border ${log.type === 'SPIKE'
+                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${log.type === 'SPIKE'
                                     ? 'bg-red-500/10 text-red-400 border-red-500/40'
                                     : 'bg-blue-500/10 text-blue-400 border-blue-500/40'
                                     }`}>
                                     {log.type}
                                   </span>
-                                  <span className="w-1 h-1 rounded-full bg-slate-800" />
-                                  <span className="text-[10px] text-slate-500 font-black tracking-tight flex items-center gap-1.5 uppercase">
+                                  <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
                                     <Clock size={11} />
                                     {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 </div>
                               </div>
-                              <p className="text-sm text-slate-100 font-bold leading-relaxed mb-4">
+                              <p className="text-sm text-slate-200 leading-relaxed mb-3">
                                 {log.detail}
                               </p>
                               <button
                                 onClick={() => navigate(`/error/${log.fingerprint}`)}
-                                className="text-[11px] font-bold text-blue-500 hover:text-blue-400 transition-all flex items-center gap-2 group/btn"
+                                className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-all flex items-center gap-1.5 group/btn"
                               >
-                                <span>VIEW DEEP TRACE</span>
-                                <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                                <span>View details</span>
+                                <ArrowRight size={13} className="group-hover/btn:translate-x-1 transition-transform" />
                               </button>
                             </div>
                           ))}
@@ -512,44 +592,10 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* ── Stat cards ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
-            <div className="animate-fade-in-up delay-75">
-              <StatCard
-                label="Total Errors"
-                value={isLoading ? '—' : totalErrors}
-                icon={<AlertTriangle size={18} className="text-red-400" />}
-                iconBg="bg-red-500/15"
-                glowColor="red"
-                description="Across all projects"
-              />
-            </div>
-            <div className="animate-fade-in-up delay-150">
-              <StatCard
-                label="Active Projects"
-                value={isLoading ? '—' : projects.length}
-                icon={<LayoutGrid size={18} className="text-blue-400" />}
-                iconBg="bg-blue-500/15"
-                glowColor="blue"
-                description="Being monitored"
-              />
-            </div>
-            <div className="animate-fade-in-up delay-225">
-              <StatCard
-                label="Last 24 Hours"
-                value={isLoading ? '—' : last24HoursCount}
-                icon={<Clock size={18} className="text-emerald-400" />}
-                iconBg="bg-emerald-500/15"
-                glowColor="green"
-                description="Recent activity"
-              />
-            </div>
-          </div>
-
           {/* ── AI Intelligence Overview ── */}
           {!isLoading && projects.length > 0 && (
-            <div className="animate-fade-in-up delay-225">
-              <AIInsightCard 
+            <div className="animate-fade-in-up delay-75">
+              <AIInsightCard
                 title="Organization executive Summary"
                 endpoint="/ai/global-overview"
                 icon={<Cpu size={16} />}
@@ -557,6 +603,79 @@ export const DashboardPage: React.FC = () => {
               />
             </div>
           )}
+
+          {/* ── Stat strip ── */}
+          <div className="animate-fade-in-up delay-150">
+            <Card className="!p-0 overflow-hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 divide-x-0 sm:divide-x divide-slate-700/40">
+                <div className="flex items-center gap-3 px-5 py-4">
+                  <div className="w-9 h-9 rounded-lg bg-red-500/15 border border-red-500/20 flex items-center justify-center shrink-0">
+                    <AlertTriangle size={16} className="text-red-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500 mb-0.5">Total Errors</p>
+                    <p className="text-2xl font-bold text-slate-100 leading-tight">
+                      {isLoading ? '—' : <AnimatedStat value={totalErrors} active={!isLoading} />}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 px-5 py-4">
+                  <div className="w-9 h-9 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+                    <LayoutGrid size={16} className="text-blue-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500 mb-0.5">Active Projects</p>
+                    <p className="text-2xl font-bold text-slate-100 leading-tight">
+                      {isLoading ? '—' : <AnimatedStat value={projects.length} active={!isLoading} />}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 px-5 py-4">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                    <Clock size={16} className="text-emerald-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-slate-500 mb-0.5">Last 24 Hours</p>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-2xl font-bold text-slate-100 leading-tight">
+                        {isLoading ? '—' : <AnimatedStat value={last24HoursCount} active={!isLoading} />}
+                      </p>
+                      {!isLoading && trendPct !== null && trendPct !== 0 && (
+                        <span className={`text-xs font-semibold ${trendPct > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                          {trendPct > 0 ? '↑' : '↓'} {Math.abs(trendPct)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {!isLoading && trendData.length > 1 && (
+                    <div className="w-16 h-8 shrink-0 hidden sm:block">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={trendData.slice(-7)} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="sparklineFill" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#34d399" stopOpacity={0.4} />
+                              <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <Area
+                            type="monotone"
+                            dataKey="count"
+                            stroke="#34d399"
+                            strokeWidth={1.5}
+                            fill="url(#sparklineFill)"
+                            dot={false}
+                            isAnimationActive={false}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </div>
 
           {/* ── Error trend chart ── */}
           {!isLoading && projects.length > 0 && (
@@ -569,44 +688,103 @@ export const DashboardPage: React.FC = () => {
                     </div>
                     <div>
                       <h2 className="text-sm font-semibold text-white">Error Trends</h2>
-                      <p className="text-xs text-slate-500">Project Trends</p>
+                      <p className="text-xs text-slate-500">Last 14 days, across all projects</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {totalErrors > 0 ? (
-                      <span className="text-xs text-red-400 font-semibold">
-                        {totalErrors} total
+                    {trendPct !== null && trendPct !== 0 && (
+                      <span className={`text-xs font-semibold flex items-center gap-1 ${trendPct > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {trendPct > 0 ? '↑' : '↓'} {Math.abs(trendPct)}%
+                        <span className="text-slate-500 font-normal">vs yesterday</span>
                       </span>
-                    ) : (
-                      <span className="text-xs text-emerald-400 font-semibold">No errors</span>
                     )}
-                    <Badge variant="info" dot>Live</Badge>
+                    <Badge variant="info" dot>Synced</Badge>
                   </div>
                 </div>
                 <div className="p-4 pt-2">
-                  <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(71,85,105,0.2)" />
+                  <ResponsiveContainer width="100%" height={200}>
+                    <AreaChart
+                      data={trendData.map((d) => ({
+                        ...d,
+                        label: new Date(`${d.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                      }))}
+                      margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="errorTrendFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(71,85,105,0.2)" vertical={false} />
                       <XAxis
-                        dataKey="name"
+                        dataKey="label"
                         tick={{ fill: '#64748b', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
+                        interval="preserveStartEnd"
                       />
                       <YAxis
                         tick={{ fill: '#64748b', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                         allowDecimals={false}
+                        width={28}
                       />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar
-                        dataKey="errors"
-                        radius={[6, 6, 0, 0]}
-                        fill="#3b82f6"
+                      <Area
+                        type="monotone"
+                        dataKey="count"
+                        stroke="#3b82f6"
+                        strokeWidth={2.5}
+                        fill="url(#errorTrendFill)"
+                        dot={false}
+                        activeDot={{ r: 4, fill: '#3b82f6', stroke: '#0f172a', strokeWidth: 2 }}
                       />
-                    </BarChart>
+                    </AreaChart>
                   </ResponsiveContainer>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* ── Recent errors widget ── */}
+          {!isLoading && topErrors.length > 0 && (
+            <div className="animate-fade-in-up delay-300">
+              <Card className="!p-0 overflow-hidden">
+                <div className="px-6 pt-5 pb-4 border-b border-slate-700/40 flex items-center gap-2.5">
+                  <div className="w-7 h-7 bg-red-500/15 rounded-lg flex items-center justify-center">
+                    <AlertTriangle size={14} className="text-red-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-white">Recent Errors</h2>
+                    <p className="text-xs text-slate-500">Most recently active, across all projects</p>
+                  </div>
+                </div>
+                <div className="divide-y divide-slate-800">
+                  {topErrors.map((err) => (
+                    <button
+                      key={err.fingerprint}
+                      onClick={() => navigate(`/error/${err.fingerprint}`)}
+                      className="w-full text-left px-6 py-4 flex items-center justify-between gap-4 hover:bg-slate-800/40 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-700/50 text-slate-300">
+                            {err.projectName}
+                          </span>
+                          <span className="text-xs text-slate-500">{err.eventType}</span>
+                        </div>
+                        <p className="text-sm text-slate-200 truncate">
+                          {err.message || 'No message captured'}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs text-slate-400">{formatRelativeDate(err.lastSeen).label}</p>
+                        <p className="text-xs text-slate-600 mt-0.5">{err.occurrences}x</p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </Card>
             </div>
@@ -640,15 +818,18 @@ export const DashboardPage: React.FC = () => {
               <EmptyState
                 icon={<Zap size={28} />}
                 title="No projects yet"
-                description="Create your first project to start monitoring production errors in real time."
+                description="Create your first project to start capturing and monitoring production errors."
                 action={{ label: '+ Create Project', onClick: () => setIsModalOpen(true) }}
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {projects.map((project) => (
+                {projects.map((project, idx) => (
                   <ProjectCard
                     key={project.id}
                     project={project}
+                    delayMs={Math.min(idx, 8) * 60}
+                    avgErrors={avgErrors}
+                    sparkline={trendByProject[project.id]}
                     onClick={() => navigate(`/project/${project.id}`)}
                   />
                 ))}

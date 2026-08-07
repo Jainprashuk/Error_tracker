@@ -165,11 +165,11 @@ export const Skeleton: React.FC<SkeletonProps> = ({ className = '' }) => (
 // ─── StatCard ────────────────────────────────────────────────────
 interface StatCardProps {
   label: string;
-  value: string | number;
+  value: React.ReactNode;
   icon?: React.ReactNode;
   iconBg?: string;
   glowColor?: 'blue' | 'red' | 'green' | 'amber';
-  trend?: { value: number; direction: 'up' | 'down' };
+  trend?: { value: number; direction: 'up' | 'down'; label?: string; invertColor?: boolean };
   description?: string;
   className?: string;
 }
@@ -194,18 +194,25 @@ export const StatCard: React.FC<StatCardProps> = ({
   const valueColors = {
     blue: 'from-blue-400 to-blue-300',
     red: 'from-red-400 to-red-300',
-    green: 'from-emerald-400 to-emerald-300',
+    green: 'from-emerald-400 to-emerald-600',
     amber: 'from-amber-400 to-amber-300',
+  };
+
+  const iconBorders = {
+    blue: 'border-blue-500/20',
+    red: 'border-red-500/20',
+    green: 'border-emerald-500/20',
+    amber: 'border-amber-500/20',
   };
 
   return (
     <div
-      className={`group bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:border-slate-600/60 hover:shadow-lg hover:-translate-y-0.5 ${glowStyles[glowColor]} ${className}`}
+      className={`group flex flex-col bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:border-slate-600/60 hover:shadow-lg hover:-translate-y-0.5 ${glowStyles[glowColor]} ${className}`}
     >
       <div className="flex items-start justify-between mb-4">
         <p className="text-sm font-medium text-slate-400 tracking-wide">{label}</p>
         {icon && (
-          <div className={`w-10 h-10 ${iconBg} rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}>
+          <div className={`w-10 h-10 ${iconBg} border ${iconBorders[glowColor]} rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}>
             {icon}
           </div>
         )}
@@ -219,14 +226,16 @@ export const StatCard: React.FC<StatCardProps> = ({
         <p className="text-xs text-slate-500 mt-1">{description}</p>
       )}
 
-      {trend && (
-        <div className="flex items-center gap-1.5 mt-3">
-          <span className={`text-xs font-semibold flex items-center gap-0.5 ${trend.direction === 'up' ? 'text-emerald-400' : 'text-red-400'}`}>
-            {trend.direction === 'up' ? '↑' : '↓'} {Math.abs(trend.value)}%
-          </span>
-          <span className="text-xs text-slate-500">vs last 7 days</span>
-        </div>
-      )}
+      <div className="flex items-center gap-1.5 mt-3 min-h-[17px]">
+        {trend && (
+          <>
+            <span className={`text-xs font-semibold flex items-center gap-0.5 ${(trend.direction === 'up') !== !!trend.invertColor ? 'text-emerald-400' : 'text-red-400'}`}>
+              {trend.direction === 'up' ? '↑' : '↓'} {Math.abs(trend.value)}%
+            </span>
+            <span className="text-xs text-slate-500">{trend.label ?? 'vs last 7 days'}</span>
+          </>
+        )}
+      </div>
     </div>
   );
 };

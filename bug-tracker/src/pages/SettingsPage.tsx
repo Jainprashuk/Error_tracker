@@ -224,6 +224,7 @@ export const SettingsPage: React.FC = () => {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.token}`,
+          "x-org-id": currentOrgId || '',
         },
         body: JSON.stringify(payload),
       });

@@ -43,6 +43,9 @@ Base URL (prod): `https://bugtracker.jainprashuk.in`. No global route prefix exc
 |---|---|---|---|
 | `POST /projects` | RBAC `PROJECT_CREATE` | `{name}` | Generates API key, creator becomes project-level `admin`. Returns `{project_id, api_key, org_id}` |
 | `GET /projects` | RBAC `PROJECT_VIEW` | — | Org's projects; attaches `my_project_role`; masks `api_key` unless caller has `API_KEY_VIEW` |
+| `GET /projects/stats` | RBAC `PROJECT_VIEW` | — | Per-project `{errorCount, lastSeen, count24h}` for the whole org in one aggregation (replaces the dashboard's old N+1 per-project fetch) |
+| `GET /projects/trends?days=14` | RBAC `PROJECT_VIEW` | — | Daily error-event counts (zero-filled buckets), org-wide + per-project — powers the dashboard trend chart and project-card sparklines |
+| `GET /projects/top-errors?limit=5` | RBAC `PROJECT_VIEW` | — | Most recently active error fingerprints across all org projects, with project names attached |
 | `PATCH /projects/{project_id}` | RBAC `PROJECT_EDIT` | `{name}` | Rename only |
 | `DELETE /projects/{project_id}` | RBAC `PROJECT_DELETE` | — | Cascading delete (errors/events/performance_metrics/project_members/alert_configs/alert_logs + project doc) — see [08-known-issues.md](./08-known-issues.md) for a cascade bug |
 
@@ -63,6 +66,7 @@ Base URL (prod): `https://bugtracker.jainprashuk.in`. No global route prefix exc
 | `GET /members/invitations` | JWT | — | Current user's pending invitations |
 | `POST /members/invitations/{invitation_id}/respond?accept=bool` | JWT | — | Accept creates `org_members` row; decline updates status |
 | `GET /members/org/invitations` | RBAC (`admin`/`dev`) | — | Invitations sent from the org |
+| `DELETE /members/org/invitations/{invitation_id}` | RBAC `ORG_MANAGE` | — | Cancels a still-pending invitation (404 if already responded/missing) |
 | `GET /members/project/{project_id}` | RBAC `PROJECT_VIEW` | — | Project-assigned members |
 | `POST /members/project` | RBAC `TEAM_MANAGE` | `{user_id, project_id, role="viewer"}` | Upserts a project-level role override; target must already be an org member |
 | `DELETE /members/project/{project_id}/{user_id}` | RBAC `TEAM_MANAGE` | — | Removes project assignment |

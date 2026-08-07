@@ -31,8 +31,8 @@ export const OrgSwitcher: React.FC = () => {
       <DropdownMenu>
         <DropdownMenuTrigger className="w-full flex items-center justify-between px-3 py-2 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg transition-all group">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-8 h-8 rounded bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-              <Building2 className="w-4 h-4 text-indigo-400" />
+            <div className="w-8 h-8 rounded bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+              <Building2 className="w-4 h-4 text-blue-400" />
             </div>
             <div className="flex flex-col items-start overflow-hidden">
               <span className="text-sm font-medium text-slate-200 truncate w-full">
@@ -58,7 +58,7 @@ export const OrgSwitcher: React.FC = () => {
               key={org._id}
               onClick={() => setCurrentOrgId(org._id)}
               className={`flex flex-col items-start gap-1 py-2 px-3 focus:bg-slate-800 focus:text-slate-200 cursor-pointer ${org._id === currentOrgId
-                ? 'bg-slate-800/50 text-indigo-400'
+                ? 'bg-slate-800/50 text-blue-400'
                 : ''
                 }`}
             >
@@ -73,7 +73,7 @@ export const OrgSwitcher: React.FC = () => {
 
           <DropdownMenuItem
             onClick={() => setIsModalOpen(true)}
-            className="text-indigo-400 focus:text-indigo-300 focus:bg-indigo-500/10 cursor-pointer"
+            className="text-blue-400 focus:text-blue-300 focus:bg-blue-500/10 cursor-pointer"
           >
             + Create New Organization
           </DropdownMenuItem>

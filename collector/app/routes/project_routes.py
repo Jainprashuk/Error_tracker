@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.models.project_model import CreateProject
 from app.services.db import db, projects_collection, project_members_collection, errors_collection, events_collection, performance_collection, alerts_config_collection, alerts_logs_collection
 from app.utils.api_key import generate_api_key
@@ -109,6 +109,160 @@ async def list_org_projects(
             continue
 
     return sanitized_projects
+
+@router.get("/projects/stats")
+async def get_org_projects_stats(
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
+):
+    """
+    Aggregate error count, last-seen timestamp, and 24h activity for every
+    project in the org in a single query. Replaces the dashboard's previous
+    N+1 pattern of one /projects/{id}/errors call per project.
+    """
+    projects = await projects_collection.find(
+        {"org_id": ObjectId(x_org_id)}, {"_id": 1}
+    ).to_list(length=500)
+    project_ids = [p["_id"] for p in projects]
+
+    if not project_ids:
+        return {}
+
+    cutoff_24h = datetime.utcnow() - timedelta(hours=24)
+
+    pipeline = [
+        {"$match": {"project_id": {"$in": project_ids}}},
+        {
+            "$group": {
+                "_id": "$project_id",
+                "errorCount": {"$sum": 1},
+                "lastSeen": {"$max": "$last_seen"},
+                "count24h": {
+                    "$sum": {"$cond": [{"$gte": ["$last_seen", cutoff_24h]}, 1, 0]}
+                },
+            }
+        },
+    ]
+
+    results = await errors_collection.aggregate(pipeline).to_list(length=500)
+
+    return {
+        str(r["_id"]): {
+            "errorCount": r["errorCount"],
+            "lastSeen": r["lastSeen"].isoformat() if r["lastSeen"] else None,
+            "count24h": r["count24h"],
+        }
+        for r in results
+    }
+
+
+@router.get("/projects/trends")
+async def get_org_error_trends(
+    days: int = 14,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
+):
+    """
+    Daily error-event counts for the last `days` days, both org-wide and
+    broken out per project, in a single aggregation. Powers the dashboard's
+    trend chart, the 24h-vs-yesterday indicator, and each project card's
+    sparkline — every bucket here is a real count, not a fabricated one.
+    """
+    projects = await projects_collection.find(
+        {"org_id": ObjectId(x_org_id)}, {"_id": 1}
+    ).to_list(length=500)
+    project_ids = [p["_id"] for p in projects]
+
+    if not project_ids:
+        return {"org": [], "byProject": {}}
+
+    since = datetime.utcnow() - timedelta(days=days)
+
+    pipeline = [
+        {"$match": {"project_id": {"$in": project_ids}, "created_at": {"$gte": since}}},
+        {
+            "$group": {
+                "_id": {
+                    "project_id": "$project_id",
+                    "day": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                },
+                "count": {"$sum": 1},
+            }
+        },
+    ]
+
+    results = await events_collection.aggregate(pipeline).to_list(length=(days + 1) * len(project_ids))
+
+    counts_by_project_day: dict = {}
+    for r in results:
+        pid = str(r["_id"]["project_id"])
+        counts_by_project_day.setdefault(pid, {})[r["_id"]["day"]] = r["count"]
+
+    day_labels = [
+        (datetime.utcnow() - timedelta(days=i)).strftime("%Y-%m-%d")
+        for i in range(days - 1, -1, -1)
+    ]
+
+    by_project = {
+        pid: [{"date": day, "count": day_counts.get(day, 0)} for day in day_labels]
+        for pid, day_counts in counts_by_project_day.items()
+    }
+
+    org_series = [
+        {
+            "date": day,
+            "count": sum(day_counts.get(day, 0) for day_counts in counts_by_project_day.values()),
+        }
+        for day in day_labels
+    ]
+
+    return {"org": org_series, "byProject": by_project}
+
+
+@router.get("/projects/top-errors")
+async def get_org_top_errors(
+    limit: int = 5,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
+):
+    """
+    The most recently active error fingerprints across every project in the
+    org, for the dashboard's at-a-glance error feed.
+    """
+    projects = await projects_collection.find(
+        {"org_id": ObjectId(x_org_id)}, {"_id": 1, "name": 1}
+    ).to_list(length=500)
+    project_ids = [p["_id"] for p in projects]
+    project_names = {str(p["_id"]): p.get("name", "Unknown") for p in projects}
+
+    if not project_ids:
+        return []
+
+    errors = await errors_collection.find(
+        {"project_id": {"$in": project_ids}},
+        {
+            "fingerprint": 1,
+            "event_type": 1,
+            "message": 1,
+            "occurrences": 1,
+            "last_seen": 1,
+            "project_id": 1,
+        }
+    ).sort("last_seen", -1).limit(limit).to_list(length=limit)
+
+    return [
+        {
+            "fingerprint": e.get("fingerprint"),
+            "eventType": e.get("event_type"),
+            "message": e.get("message"),
+            "occurrences": e.get("occurrences", 1),
+            "lastSeen": e["last_seen"].isoformat() if e.get("last_seen") else None,
+            "projectId": str(e["project_id"]),
+            "projectName": project_names.get(str(e["project_id"]), "Unknown"),
+        }
+        for e in errors
+    ]
+
 
 class UpdateProjectRequest(BaseModel):
     name: str

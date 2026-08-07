@@ -194,6 +194,24 @@ async def list_org_invitations(
             
     return enriched
 
+@router.delete("/org/invitations/{invitation_id}")
+async def cancel_org_invitation(
+    invitation_id: str,
+    x_org_id: str = Header(...),
+    org_membership: dict = Depends(verify_org_membership(required_permission="ORG_MANAGE"))
+):
+    """Revoke a pending invitation before it's been accepted or declined."""
+    result = await org_invitations_collection.delete_one({
+        "_id": ObjectId(invitation_id),
+        "org_id": x_org_id,
+        "status": "pending"
+    })
+
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Pending invitation not found.")
+
+    return {"message": "Invitation cancelled."}
+
 @router.get("/project/{project_id}")
 async def list_project_members(
     project_id: str,
