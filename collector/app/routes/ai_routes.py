@@ -12,7 +12,7 @@ from app.services.db import (
     ai_insights_collection,
     ai_usage_collection
 )
-from app.middleware.org_middleware import verify_org_membership
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access
 import structlog
 
 logger = structlog.get_logger()
@@ -67,23 +67,27 @@ async def analyze_incident(
     org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
 ):
     try:
-        # 1. Check Cache
-        cached = await get_cached_insight(request.error_id, "error_analysis", force_refresh)
-        if cached:
-            return cached
-
-        # 2. Get Error Group
+        # 1. Get Error Group (needed to resolve project scope before anything else)
         query = {}
         if ObjectId.is_valid(request.error_id):
             query["_id"] = ObjectId(request.error_id)
         else:
             query["fingerprint"] = request.error_id
-            
+
         error_group = await errors_collection.find_one(query)
         if not error_group:
             raise HTTPException(status_code=404, detail="Error not found")
 
         project_id = str(error_group.get("project_id"))
+
+        # 2. Enforce restricted-member project scope (before serving cache)
+        await ensure_project_access(org_membership, org_membership["user_id"], project_id)
+
+        # 3. Check Cache
+        cached = await get_cached_insight(request.error_id, "error_analysis", force_refresh)
+        if cached:
+            return cached
+
         latest_event = await events_collection.find_one(
             {"fingerprint": error_group["fingerprint"]},
             sort=[("created_at", -1)]
@@ -125,6 +129,7 @@ async def project_health_summary(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
 ):
+    await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     cached = await get_cached_insight(project_id, "project_summary", force_refresh)
     if cached:
         return cached
@@ -244,6 +249,7 @@ async def performance_intelligence(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
 ):
+    await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     cached = await get_cached_insight(project_id, "performance_insights", force_refresh)
     if cached:
         return cached

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, Badge, Skeleton } from '../components/ui';
-import { InviteMemberModal } from '../components/InviteMemberModal';
+import { InviteMemberModal, type InvitePayload, type ProjectOption } from '../components/InviteMemberModal';
 import { UserPlus, Mail, Shield, Users, Clock, CheckCircle2, XCircle, X } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
 import { formatRelativeDate } from '../utils/time';
@@ -11,6 +11,7 @@ export const MembersPage: React.FC = () => {
   const { currentOrgId, user } = useAuthStore();
   const [members, setMembers] = useState<any[]>([]);
   const [invitations, setInvitations] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
@@ -41,6 +42,15 @@ export const MembersPage: React.FC = () => {
       const invitesData = await invitesRes.json();
       setInvitations(Array.isArray(invitesData) ? invitesData : []);
 
+      // Fetch org projects (for scoping restricted invites)
+      const projectsRes = await fetch(`${API_BASE_URL}/projects`, { headers });
+      const projectsData = await projectsRes.json();
+      setProjects(
+        Array.isArray(projectsData)
+          ? projectsData.map((p: any) => ({ id: p.id || p._id, name: p.name }))
+          : []
+      );
+
     } catch (err) {
       toast.error('Failed to load team data');
     } finally {
@@ -48,7 +58,7 @@ export const MembersPage: React.FC = () => {
     }
   };
 
-  const handleInvite = async (email: string, role: string) => {
+  const handleInvite = async (payload: InvitePayload) => {
     setIsInviting(true);
     try {
       const session = JSON.parse(localStorage.getItem('session') || '{}');
@@ -59,7 +69,7 @@ export const MembersPage: React.FC = () => {
           'Authorization': `Bearer ${session.token}`,
           'x-org-id': currentOrgId || ''
         },
-        body: JSON.stringify({ email, role })
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) {
@@ -342,6 +352,7 @@ export const MembersPage: React.FC = () => {
         onClose={() => setIsInviteModalOpen(false)}
         onSubmit={handleInvite}
         isLoading={isInviting}
+        projects={projects}
       />
     </div>
   );

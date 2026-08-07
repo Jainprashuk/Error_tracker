@@ -55,7 +55,7 @@ async def report_error(payload: Union[ErrorPayload, List[ErrorPayload]], backgro
 
 
 
-from app.middleware.org_middleware import verify_org_membership
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access
 from fastapi import Header, Depends
 
 # GET all errors of a project (with pagination)
@@ -67,6 +67,7 @@ async def get_project_errors(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(allowed_roles=["admin", "dev", "viewer"]))
 ):
+    await ensure_project_access(org_membership, org_membership["user_id"], project_id)
 
     skip = (page - 1) * limit
 
@@ -113,6 +114,9 @@ async def get_error_detail(
     error = await errors_collection.find_one({"fingerprint": fingerprint})
     if not error:
         raise HTTPException(status_code=404, detail="Error not found")
+
+    # Restricted members may only view errors belonging to a granted project.
+    await ensure_project_access(org_membership, org_membership["user_id"], str(error.get("project_id")))
 
     # 💡 P0 FIX: Fetch the LATEST event occurrence to get the full payload/stack trace
     latest_event = await events_collection.find_one(

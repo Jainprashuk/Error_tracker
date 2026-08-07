@@ -5,14 +5,22 @@ from pydantic import BaseModel
 from bson import ObjectId
 from app.services.db import db, org_members_collection, project_members_collection, users_collection, projects_collection, org_invitations_collection, organizations_collection
 from app.routes.auth_routes import verify_token
-from app.middleware.org_middleware import verify_org_membership
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access
 from app.services.email_service import send_lifecycle_email
 
 router = APIRouter(prefix="/members", tags=["Members"])
 
+class ProjectGrant(BaseModel):
+    project_id: str
+    role: str = "viewer"  # dev, viewer
+
 class AddOrgMemberRequest(BaseModel):
     email: str
-    role: str = "viewer"  # admin, dev, viewer
+    role: str = "viewer"  # admin, dev, viewer (baseline org role)
+    # When restricted=True the member gets NO org-wide project visibility;
+    # they can only see/access the projects listed in `projects`.
+    restricted: bool = False
+    projects: List[ProjectGrant] = []
 
 class ChangeMemberRoleRequest(BaseModel):
     user_id: str
@@ -96,11 +104,31 @@ async def add_org_member(
     if existing_invite:
         raise HTTPException(status_code=400, detail="User has already been invited to this organization.")
 
+    # Validate & normalize per-project grants (for restricted invites).
+    # Only projects that actually belong to this org are accepted.
+    project_grants = []
+    if request.restricted:
+        if not request.projects:
+            raise HTTPException(status_code=400, detail="Restricted invites must grant access to at least one project.")
+        for grant in request.projects:
+            try:
+                proj_oid = ObjectId(grant.project_id)
+            except Exception:
+                raise HTTPException(status_code=400, detail=f"Invalid project id: {grant.project_id}")
+            proj = await projects_collection.find_one({"_id": proj_oid, "org_id": ObjectId(x_org_id)})
+            if not proj:
+                raise HTTPException(status_code=400, detail="One or more projects do not belong to this organization.")
+            project_grants.append({"project_id": grant.project_id, "role": grant.role})
+
     invite_doc = {
         "org_id": x_org_id,
         "user_id": user_id,
         "email": request.email,
-        "role": request.role,
+        # Restricted members get a minimal "viewer" baseline; their real access
+        # comes from the per-project grants applied on accept.
+        "role": "viewer" if request.restricted else request.role,
+        "restricted": request.restricted,
+        "project_grants": project_grants,
         "invited_by": org_membership["user_id"],
         "status": "pending",
         "created_at": datetime.utcnow()
@@ -207,15 +235,26 @@ async def respond_to_invitation(
         raise HTTPException(status_code=404, detail="Invitation not found or already processed.")
         
     if accept:
-        # 1. Create membership
+        # 1. Create membership (carry the restricted flag through from the invite)
+        is_restricted = bool(invite.get("restricted"))
         member_doc = {
             "org_id": invite["org_id"],
             "user_id": user_id,
             "role": invite["role"],
+            "restricted": is_restricted,
             "created_at": datetime.utcnow()
         }
         await org_members_collection.insert_one(member_doc)
-        
+
+        # 1b. For restricted members, materialize the per-project access grants
+        for grant in invite.get("project_grants", []):
+            await project_members_collection.update_one(
+                {"project_id": grant["project_id"], "user_id": user_id},
+                {"$set": {"role": grant.get("role", "viewer"), "updated_at": datetime.utcnow()},
+                 "$setOnInsert": {"created_at": datetime.utcnow()}},
+                upsert=True
+            )
+
         # 2. Update invite status
         await org_invitations_collection.update_one(
             {"_id": ObjectId(invitation_id)},
@@ -279,6 +318,7 @@ async def list_project_members(
     org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
 ):
     """List all members specifically assigned to a project."""
+    await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     memberships = await project_members_collection.find({"project_id": project_id}).to_list(length=100)
     
     enriched_members = []

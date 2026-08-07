@@ -1,7 +1,53 @@
 from fastapi import HTTPException, Depends, Header
-from app.services.db import org_members_collection, project_members_collection, roles_collection
+from bson import ObjectId
+from app.services.db import org_members_collection, project_members_collection, roles_collection, projects_collection
 from app.routes.auth_routes import verify_token
 import time
+
+
+async def get_visible_project_ids(member: dict, user_id: str, org_id: str):
+    """
+    Resolve which projects a member is allowed to see within an org.
+
+    Returns None for a normal member (full org-wide visibility — callers should
+    NOT add any project filter), or a list[ObjectId] for a restricted member
+    (only the projects explicitly granted to them via project_members).
+    """
+    if not member.get("restricted"):
+        return None
+
+    assigned = await project_members_collection.find({"user_id": user_id}).to_list(length=500)
+    candidate_ids = []
+    for a in assigned:
+        try:
+            candidate_ids.append(ObjectId(a["project_id"]))
+        except Exception:
+            continue
+
+    if not candidate_ids:
+        return []
+
+    # Keep only the granted projects that actually live in this org.
+    docs = await projects_collection.find(
+        {"org_id": ObjectId(org_id), "_id": {"$in": candidate_ids}}, {"_id": 1}
+    ).to_list(length=500)
+    return [d["_id"] for d in docs]
+
+
+async def ensure_project_access(member: dict, user_id: str, project_id: str):
+    """
+    Guard for project-scoped routes: a restricted member may only touch a
+    project they were explicitly granted. No-op for normal members. Raises 403
+    otherwise. `project_id` may be a str or ObjectId.
+    """
+    if not member.get("restricted"):
+        return
+    grant = await project_members_collection.find_one({
+        "project_id": str(project_id),
+        "user_id": user_id
+    })
+    if not grant:
+        raise HTTPException(status_code=403, detail="Forbidden. You don't have access to this project.")
 
 # 🚀 In-memory cache for roles to prevent DB thrashing
 ROLE_CACHE = {}

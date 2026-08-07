@@ -4,7 +4,7 @@ from app.services.openproject_service import create_openproject_ticket
 import os
 from bson import ObjectId
 from app.services.db import projects_collection
-from app.middleware.org_middleware import verify_org_membership
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access
 
 router = APIRouter(tags=["Tickets"])
 
@@ -26,6 +26,7 @@ async def create_ticket_from_error(
         raise HTTPException(status_code=400, detail="Ticket already generated")
 
     project_id = error.get("project_id")
+    await ensure_project_access(org_membership, org_membership["user_id"], str(project_id))
     project = await projects_collection.find_one({"_id": project_id, "org_id": ObjectId(x_org_id)})
 
     if not project:
@@ -67,6 +68,7 @@ async def get_project_tickets(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(allowed_roles=["admin", "dev", "viewer"]))
 ):
+    await ensure_project_access(org_membership, org_membership["user_id"], project_id)
 
     # 💡 P1: Await async find + to_list
     tickets = await errors_collection.find(

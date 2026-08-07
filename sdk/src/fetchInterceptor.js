@@ -52,6 +52,19 @@ export function setupFetchInterceptor(takeScreenshots = false, capturePerformanc
           } catch (_) {}
         }
 
+        // Read the body from a clone — the original stream must stay unconsumed
+        // so it can be returned to the caller below.
+        let responseData = null;
+        try {
+          const clone = response.clone();
+          const contentType = clone.headers.get("content-type") || "";
+          responseData = contentType.includes("application/json")
+            ? await clone.json()
+            : await clone.text();
+        } catch (_) {
+          responseData = null;
+        }
+
         const payload = createBasePayload({
           event_type: "api_error",
           error: {
@@ -59,7 +72,7 @@ export function setupFetchInterceptor(takeScreenshots = false, capturePerformanc
             type: "fetch_error",
           },
           request: { url, method, payload: init?.body || null },
-          response: { status: response.status, data: null },
+          response: { status: response.status, data: responseData },
           screenshot,
         });
 

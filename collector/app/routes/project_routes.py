@@ -6,7 +6,7 @@ from app.services.db import db, projects_collection, project_members_collection,
 from app.utils.api_key import generate_api_key
 from bson import ObjectId
 from app.utils.encryption import decrypt_data, encrypt_data
-from app.middleware.org_middleware import verify_org_membership
+from app.middleware.org_middleware import verify_org_membership, get_visible_project_ids, ensure_project_access
 
 router = APIRouter(tags=["Projects"])
 
@@ -52,6 +52,11 @@ async def list_org_projects(
 
     # 1. Base query: must belong to the org
     query = {"org_id": ObjectId(x_org_id)}
+
+    # Restricted members only see the projects explicitly granted to them.
+    visible_ids = await get_visible_project_ids(org_membership, user_id, x_org_id)
+    if visible_ids is not None:
+        query["_id"] = {"$in": visible_ids}
 
     # Cache assigned projects for quick role lookup (to determine user's role within each project)
     role_map = {}
@@ -120,9 +125,12 @@ async def get_org_projects_stats(
     project in the org in a single query. Replaces the dashboard's previous
     N+1 pattern of one /projects/{id}/errors call per project.
     """
-    projects = await projects_collection.find(
-        {"org_id": ObjectId(x_org_id)}, {"_id": 1}
-    ).to_list(length=500)
+    match = {"org_id": ObjectId(x_org_id)}
+    visible_ids = await get_visible_project_ids(org_membership, org_membership["user_id"], x_org_id)
+    if visible_ids is not None:
+        match["_id"] = {"$in": visible_ids}
+
+    projects = await projects_collection.find(match, {"_id": 1}).to_list(length=500)
     project_ids = [p["_id"] for p in projects]
 
     if not project_ids:
@@ -168,9 +176,12 @@ async def get_org_error_trends(
     trend chart, the 24h-vs-yesterday indicator, and each project card's
     sparkline — every bucket here is a real count, not a fabricated one.
     """
-    projects = await projects_collection.find(
-        {"org_id": ObjectId(x_org_id)}, {"_id": 1}
-    ).to_list(length=500)
+    match = {"org_id": ObjectId(x_org_id)}
+    visible_ids = await get_visible_project_ids(org_membership, org_membership["user_id"], x_org_id)
+    if visible_ids is not None:
+        match["_id"] = {"$in": visible_ids}
+
+    projects = await projects_collection.find(match, {"_id": 1}).to_list(length=500)
     project_ids = [p["_id"] for p in projects]
 
     if not project_ids:
@@ -229,9 +240,12 @@ async def get_org_top_errors(
     The most recently active error fingerprints across every project in the
     org, for the dashboard's at-a-glance error feed.
     """
-    projects = await projects_collection.find(
-        {"org_id": ObjectId(x_org_id)}, {"_id": 1, "name": 1}
-    ).to_list(length=500)
+    match = {"org_id": ObjectId(x_org_id)}
+    visible_ids = await get_visible_project_ids(org_membership, org_membership["user_id"], x_org_id)
+    if visible_ids is not None:
+        match["_id"] = {"$in": visible_ids}
+
+    projects = await projects_collection.find(match, {"_id": 1, "name": 1}).to_list(length=500)
     project_ids = [p["_id"] for p in projects]
     project_names = {str(p["_id"]): p.get("name", "Unknown") for p in projects}
 
@@ -278,6 +292,7 @@ async def update_project(
     Updates project metadata. Currently supports renaming.
     Restricted to organization managers with PROJECT_EDIT capability.
     """
+    await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     # 1. Verify project belongs to org
     project = await projects_collection.find_one({"_id": ObjectId(project_id), "org_id": ObjectId(x_org_id)})
     if not project:
@@ -301,6 +316,7 @@ async def delete_project(
     Permanently deletes a project and all its associated data.
     Restricted to organization managers with PROJECT_DELETE capability.
     """
+    await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     # 1. Verify project belongs to org
     project = await projects_collection.find_one({"_id": ObjectId(project_id), "org_id": ObjectId(x_org_id)})
     if not project:

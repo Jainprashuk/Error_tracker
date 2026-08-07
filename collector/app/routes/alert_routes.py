@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Header
-from app.middleware.org_middleware import verify_org_membership
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access
 from typing import Dict, Any
 from app.services.alert_service import get_project_alert_config, alerts_config_collection, alerts_logs_collection
 from app.models.alert_model import AlertConfigSchema
@@ -14,6 +14,7 @@ async def get_alert_config_endpoint(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(required_permission="ALERT_VIEW"))
 ):
+    await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     try:
         config = await get_project_alert_config(project_id)
         print(config , "fetched config")
@@ -28,6 +29,7 @@ async def update_alert_config(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(required_permission="ALERT_MANAGE"))
 ):
+    await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     try:
         updated_data = payload.model_dump()
         updated_data["projectId"] = ObjectId(project_id)
@@ -49,6 +51,7 @@ async def get_alert_logs(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(required_permission="ALERT_VIEW"))
 ):
+    await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     try:
         # 💡 P1: Await async find + to_list
         logs = await alerts_logs_collection.find({"projectId": ObjectId(project_id)}).sort("createdAt", -1).to_list(length=50)
