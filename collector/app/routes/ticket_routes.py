@@ -4,7 +4,7 @@ from app.services.openproject_service import create_openproject_ticket
 import os
 from bson import ObjectId
 from app.services.db import projects_collection
-from app.middleware.org_middleware import verify_org_membership, ensure_project_access
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access, ensure_project_in_org
 
 router = APIRouter(tags=["Tickets"])
 
@@ -68,6 +68,7 @@ async def get_project_tickets(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(allowed_roles=["admin", "dev", "viewer"]))
 ):
+    await ensure_project_in_org(project_id, x_org_id)
     await ensure_project_access(org_membership, org_membership["user_id"], project_id)
 
     # 💡 P1: Await async find + to_list

@@ -5,7 +5,7 @@ no alerts, no tickets. Just raw perf telemetry grouped by project & route.
 """
 
 from fastapi import APIRouter, Request, HTTPException, Depends, Header
-from app.middleware.org_middleware import verify_org_membership, ensure_project_access
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access, ensure_project_in_org
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List, Union
 from app.services.db import performance_collection, projects_collection
@@ -122,6 +122,7 @@ async def get_project_performance(
       "period_days": 7
     }
     """
+    await ensure_project_in_org(project_id, x_org_id)
     await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     try:
         pid = ObjectId(project_id)
@@ -220,6 +221,7 @@ async def get_route_performance_timeseries(
     Returns raw time-series data for a specific route.
     Useful for charts that show performance over time.
     """
+    await ensure_project_in_org(project_id, x_org_id)
     await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     try:
         pid = ObjectId(project_id)

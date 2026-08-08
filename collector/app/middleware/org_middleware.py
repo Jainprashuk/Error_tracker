@@ -34,6 +34,27 @@ async def get_visible_project_ids(member: dict, user_id: str, org_id: str):
     return [d["_id"] for d in docs]
 
 
+async def ensure_project_in_org(project_id: str, org_id: str):
+    """
+    Tenant-isolation guard for project-scoped routes.
+
+    `verify_org_membership` only proves the caller belongs to `x_org_id` — it does
+    NOT prove that the `project_id` in the path actually belongs to that org. Without
+    this check, any member of any org could read/write another org's project data by
+    supplying that project's id together with their own `x_org_id`. Raises 404 (rather
+    than 403, to avoid confirming the project's existence to outsiders) on a mismatch.
+    Returns the project document so callers can reuse it.
+    """
+    try:
+        proj_oid = ObjectId(project_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid project_id")
+    project = await projects_collection.find_one({"_id": proj_oid, "org_id": ObjectId(org_id)})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found in this organization.")
+    return project
+
+
 async def ensure_project_access(member: dict, user_id: str, project_id: str):
     """
     Guard for project-scoped routes: a restricted member may only touch a

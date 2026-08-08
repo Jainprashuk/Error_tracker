@@ -55,7 +55,7 @@ async def report_error(payload: Union[ErrorPayload, List[ErrorPayload]], backgro
 
 
 
-from app.middleware.org_middleware import verify_org_membership, ensure_project_access
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access, ensure_project_in_org
 from fastapi import Header, Depends
 
 # GET all errors of a project (with pagination)
@@ -67,6 +67,7 @@ async def get_project_errors(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(allowed_roles=["admin", "dev", "viewer"]))
 ):
+    await ensure_project_in_org(project_id, x_org_id)
     await ensure_project_access(org_membership, org_membership["user_id"], project_id)
 
     skip = (page - 1) * limit
@@ -115,6 +116,8 @@ async def get_error_detail(
     if not error:
         raise HTTPException(status_code=404, detail="Error not found")
 
+    # Tenant isolation: the error's project must belong to the caller's org.
+    await ensure_project_in_org(str(error.get("project_id")), x_org_id)
     # Restricted members may only view errors belonging to a granted project.
     await ensure_project_access(org_membership, org_membership["user_id"], str(error.get("project_id")))
 

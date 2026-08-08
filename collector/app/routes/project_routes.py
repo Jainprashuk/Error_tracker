@@ -322,13 +322,19 @@ async def delete_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found in this organization.")
 
-    # 2. Cleanup all associated data
-    await errors_collection.delete_many({"project_id": project_id})
-    await events_collection.delete_many({"project_id": project_id})
-    await performance_collection.delete_many({"project_id": project_id})
+    # 2. Cleanup all associated data.
+    # NOTE: errors/events/performance store `project_id` as an ObjectId, while
+    # project_members stores it as a string, and the alert collections key on
+    # `projectId` (camelCase) as an ObjectId. Using the wrong type/field here
+    # silently matches nothing and orphans the data — so each query below is
+    # matched to how that collection actually stores the reference.
+    project_oid = ObjectId(project_id)
+    await errors_collection.delete_many({"project_id": project_oid})
+    await events_collection.delete_many({"project_id": project_oid})
+    await performance_collection.delete_many({"project_id": project_oid})
     await project_members_collection.delete_many({"project_id": project_id})
-    await alerts_config_collection.delete_many({"project_id": project_id})
-    await alerts_logs_collection.delete_many({"project_id": project_id})
+    await alerts_config_collection.delete_many({"projectId": project_oid})
+    await alerts_logs_collection.delete_many({"projectId": project_oid})
 
     # 3. Final: Delete the project meta doc
     await projects_collection.delete_one({"_id": ObjectId(project_id)})

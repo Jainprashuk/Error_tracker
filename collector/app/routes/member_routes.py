@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from bson import ObjectId
 from app.services.db import db, org_members_collection, project_members_collection, users_collection, projects_collection, org_invitations_collection, organizations_collection
 from app.routes.auth_routes import verify_token
-from app.middleware.org_middleware import verify_org_membership, ensure_project_access
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access, ensure_project_in_org
 from app.services.email_service import send_lifecycle_email
 
 router = APIRouter(prefix="/members", tags=["Members"])
@@ -318,6 +318,7 @@ async def list_project_members(
     org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
 ):
     """List all members specifically assigned to a project."""
+    await ensure_project_in_org(project_id, x_org_id)
     await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     memberships = await project_members_collection.find({"project_id": project_id}).to_list(length=100)
     
@@ -374,6 +375,7 @@ async def remove_project_member(
     org_membership: dict = Depends(verify_org_membership(required_permission="TEAM_MANAGE"))
 ):
     """Unassign a user from a project."""
+    await ensure_project_in_org(project_id, x_org_id)
     await project_members_collection.delete_one({"project_id": project_id, "user_id": user_id})
     return {"message": "User unassigned from project."}
 

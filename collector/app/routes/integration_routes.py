@@ -3,7 +3,7 @@ from app.services.db import projects_collection
 from bson import ObjectId
 import httpx
 from app.utils.encryption import encrypt_data
-from app.middleware.org_middleware import verify_org_membership, ensure_project_access
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access, ensure_project_in_org
 
 router = APIRouter()
 
@@ -15,6 +15,7 @@ async def save_openproject_config(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(required_permission="INTEGRATIONS_MANAGE"))
 ):
+    await ensure_project_in_org(project_id, x_org_id)
     await ensure_project_access(org_membership, org_membership["user_id"], project_id)
 
     try:

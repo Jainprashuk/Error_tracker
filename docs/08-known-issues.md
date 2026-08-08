@@ -2,9 +2,16 @@
 
 Discovered while reading the full codebase to write this documentation set (2026-06-24). None of these have been fixed — this is an inventory for whoever picks up engineering work next.
 
+## Recently fixed (2026-08-07)
+
+- **[FIXED] Cascading project delete left orphans.** `DELETE /projects/{project_id}` now deletes `errors`/`events`/`performance` by `ObjectId` `project_id` and the alert collections by their real `projectId` (camelCase, ObjectId) key. Previously used a raw string `project_id` and the wrong field name, so nearly all of a "deleted" project's data was orphaned.
+- **[FIXED] Cross-tenant IDOR on project-scoped routes.** Added `ensure_project_in_org(project_id, x_org_id)` in `org_middleware.py` and applied it to the error/ticket/alert/performance/integration/AI/project-member routes. `verify_org_membership` only proved org membership, never that the path's `project_id` belonged to that org — any member of any org could read/write another org's project data by supplying its id.
+- **[FIXED] `POST /ai/analyze-error` masked auth errors.** Its blanket `except Exception` swallowed `HTTPException` (403/404) into a `200 {"problem": ...}` body; it now re-raises `HTTPException`.
+- **[FIXED] SDK ignored unhandled promise rejections and clobbered `window.onerror`.** `tracker.js` now adds an `unhandledrejection` listener and chains to any pre-existing `window.onerror` instead of replacing it; both paths use the standard `createBasePayload` envelope. (Requires an SDK rebuild + republish to ship.)
+
 ## Backend (collector)
 
-1. **Cascading project delete likely leaves orphans.** `DELETE /projects/{project_id}` deletes `errors`/`events`/`performance_metrics` using the raw string `project_id` (`{"project_id": project_id}`), but those collections store `project_id` as an `ObjectId`. The queries likely silently match zero documents, leaving orphaned data after a project is "deleted."
+1. **~~Cascading project delete likely leaves orphans.~~ FIXED — see above.**
 2. **`pending_alerts` is write-only.** Failed alert emails are queued there on send failure, but no scheduled job or code path ever drains/retries it. It will grow unbounded.
 3. **Role permission lists are inconsistent across two seed locations.** `org_middleware.py`'s default `dev` role permissions differ from the seed list in `admin_routes.py`'s `GET /admin/roles` (the latter is missing `PERFORMANCE_VIEW`/`API_KEY_VIEW`). Whichever seeds first "wins" depending on call order — should be unified to one source of truth.
 4. **Mixed `allowed_roles` vs `required_permission` authorization styles.** Some routes use the legacy role-list check, some use the permission-string check, some use both — inconsistent and worth normalizing to permission-strings only.
@@ -34,10 +41,10 @@ Discovered while reading the full codebase to write this documentation set (2026
 
 ## SDK
 
-1. **Unhandled promise rejections are not actually captured**, despite the README and the playground's demo button implying they are. There is no `window.addEventListener('unhandledrejection', ...)` anywhere in source. Either implement it or correct the docs/demo.
+1. **~~Unhandled promise rejections are not actually captured.~~ FIXED (2026-08-07)** — `tracker.js` now registers `window.addEventListener('unhandledrejection', ...)`. Rebuild/republish the SDK to ship it.
 2. **`dist/index.d.ts` / `dist/index.d.cts` contain bundled JS, not real type declarations** — a `tsup --dts` build defect. Don't market "TypeScript support" until this is fixed.
 3. **Payload shape is not 100% uniform.** The raw `window.onerror` handler builds an ad-hoc smaller object that skips the `request`/`response`/`metadata` fields present in the standard `createBasePayload` envelope used everywhere else.
-4. **`window.onerror` overwrites any pre-existing handler** rather than chaining to it — if the host app already sets `window.onerror`, that handler is silently replaced.
+4. **~~`window.onerror` overwrites any pre-existing handler.~~ FIXED (2026-08-07)** — it now captures the previous handler and calls it after reporting.
 5. **In-memory dedup map in `sender.js` (`recentErrors`) is never pruned/capped** — long-running sessions with many distinct error signatures could grow this unboundedly (minor memory leak).
 6. **The `project` config option is vestigial** — it only flows into the legacy `window.onerror` payload as a flag, and is not the actual project identifier (that's always `apiKey`). Avoid documenting it as required or meaningful.
 7. **Leftover debug `console.log`** in `manualBugReporter.js` before building the actual payload — harmless but should be cleaned up.

@@ -12,7 +12,7 @@ from app.services.db import (
     ai_insights_collection,
     ai_usage_collection
 )
-from app.middleware.org_middleware import verify_org_membership, ensure_project_access
+from app.middleware.org_middleware import verify_org_membership, ensure_project_access, ensure_project_in_org
 import structlog
 
 logger = structlog.get_logger()
@@ -80,7 +80,9 @@ async def analyze_incident(
 
         project_id = str(error_group.get("project_id"))
 
-        # 2. Enforce restricted-member project scope (before serving cache)
+        # 2a. Tenant isolation: the error's project must belong to the caller's org.
+        await ensure_project_in_org(project_id, x_org_id)
+        # 2b. Enforce restricted-member project scope (before serving cache)
         await ensure_project_access(org_membership, org_membership["user_id"], project_id)
 
         # 3. Check Cache
@@ -118,6 +120,10 @@ async def analyze_incident(
         
         await save_insight_to_cache(request.error_id, "error_analysis", analysis)
         return analysis
+    except HTTPException:
+        # Auth/scope errors (403/404) must surface as themselves, not be masked
+        # as a 200 "analysis failed" body.
+        raise
     except Exception as e:
         logger.error("ai_endpoint_error", error=str(e))
         return {"problem": "AI Analysis failed", "solution": f"Internal Error: {str(e)}"}
@@ -129,6 +135,7 @@ async def project_health_summary(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
 ):
+    await ensure_project_in_org(project_id, x_org_id)
     await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     cached = await get_cached_insight(project_id, "project_summary", force_refresh)
     if cached:
@@ -249,6 +256,7 @@ async def performance_intelligence(
     x_org_id: str = Header(...),
     org_membership: dict = Depends(verify_org_membership(required_permission="PROJECT_VIEW"))
 ):
+    await ensure_project_in_org(project_id, x_org_id)
     await ensure_project_access(org_membership, org_membership["user_id"], project_id)
     cached = await get_cached_insight(project_id, "performance_insights", force_refresh)
     if cached:
