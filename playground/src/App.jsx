@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { initBugTracker, captureError } from 'bug-tracker-sdk';
 
-const BUGTRACE_API_KEY = "proj_e766028f1bca72df6c39d2fd"; // Your active API key
+const BUGTRACE_API_KEY = "proj_bad82f413a7735da944b2ff8"; // Your active API key
 
 // Initialize at module level
 initBugTracker({
