@@ -6,6 +6,7 @@ import { Card, Badge, Skeleton } from '../components/ui';
 import { AIInsightCard } from '../components/AIInsightCard';
 import { useAuthStore } from '../store/auth';
 import toast from 'react-hot-toast';
+import { parseServerDate } from '../utils/time';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -113,7 +114,7 @@ export const ProjectPerformancePage: React.FC = () => {
       const data = await res.json();
       // Format data for chart
       const formatted = data.data.map((d: any) => {
-        const date = new Date(d.timestamp);
+        const date = parseServerDate(d.timestamp);
         return {
           time: `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`,
           Load: d.pageLoadTime || 0,

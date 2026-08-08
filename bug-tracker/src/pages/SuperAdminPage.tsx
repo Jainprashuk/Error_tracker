@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Shield, Users, Building2, Layout, Database, ArrowRight, Save, Plus, X, Lock, RefreshCw, ChevronLeft, FolderKey, BookOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { parseServerDate } from '../utils/time';
 
 interface Stats {
   orgs: number;
@@ -502,7 +503,7 @@ export const SuperAdminPage: React.FC = () => {
                     onClick={() => setSelectedEmailLog(log)}
                   >
                     <td className="py-4 pl-2 text-[11px] text-slate-400 font-mono whitespace-nowrap">
-                      {new Date(log.timestamp).toLocaleString()}
+                      {parseServerDate(log.timestamp).toLocaleString()}
                     </td>
                     <td className="py-4">
                       <span className="text-[11px] font-medium text-slate-300">{log.recipient}</span>
@@ -705,7 +706,7 @@ export const SuperAdminPage: React.FC = () => {
                     onClick={() => setSelectedLog(log)}
                   >
                     <td className="py-4 text-[11px] text-slate-400 font-mono">
-                      {new Date(log.timestamp).toLocaleString()}
+                      {parseServerDate(log.timestamp).toLocaleString()}
                     </td>
                     <td className="py-4">
                       <div className="flex flex-col">
@@ -1124,7 +1125,7 @@ export const SuperAdminPage: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Timestamp</p>
-                  <p className="text-xs font-medium text-slate-400">{new Date(selectedLog.timestamp).toLocaleString()}</p>
+                  <p className="text-xs font-medium text-slate-400">{parseServerDate(selectedLog.timestamp).toLocaleString()}</p>
                 </div>
               </div>
 

@@ -9,6 +9,7 @@ import { Card, Button, Badge, Skeleton, Tabs } from '../components/ui';
 import { AIInsightCard } from '../components/AIInsightCard';
 import { useAuthStore } from '../store/auth';
 import type { ErrorDetail } from '../types';
+import { parseServerDate } from '../utils/time';
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -17,7 +18,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const formatDate = (dateString: string | undefined) => {
   if (!dateString) return { date: 'N/A', time: 'N/A', relative: 'N/A' };
   try {
-    const date = new Date(dateString);
+    const date = parseServerDate(dateString);
     if (isNaN(date.getTime())) return { date: 'N/A', time: 'N/A', relative: 'N/A' };
     const now = new Date();
     const diff = now.getTime() - date.getTime();

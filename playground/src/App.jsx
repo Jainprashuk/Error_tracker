@@ -7,7 +7,6 @@ const BUGTRACE_API_KEY = "proj_bad82f413a7735da944b2ff8"; // Your active API key
 // Initialize at module level
 initBugTracker({
   apiKey: BUGTRACE_API_KEY,
-  collectorUrl: "http://localhost:8000",
   features: {
     captureScreenshots: {
       fetchErrors: true,
@@ -143,6 +142,176 @@ function Home() {
     }
   };
 
+  // ---- Failed GET scenarios (server responds, but with an error status) ----
+
+  const triggerGet404 = async () => {
+    try {
+      const res = await fetch("https://jsonplaceholder.typicode.com/posts/99999999");
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(`GET failed with ${res.status}: ${JSON.stringify(data)}`);
+      }
+      console.log("Fetched Data:", data);
+    } catch (err) {
+      captureError(err, {
+        tags: ["api", "get", "404"],
+        context: { endpoint: "/posts/99999999", method: "GET" }
+      });
+      alert("GET 404 captured! (Resource not found)");
+    }
+  };
+
+  const triggerGet500 = async () => {
+    try {
+      // httpstat.us reliably returns the status code you ask for
+      const res = await fetch("https://httpstat.us/500", {
+        headers: { Accept: "application/json" }
+      });
+      const body = await res.text();
+      if (!res.ok) {
+        throw new Error(`GET failed with ${res.status}: ${body}`);
+      }
+    } catch (err) {
+      captureError(err, {
+        tags: ["api", "get", "500"],
+        context: { endpoint: "https://httpstat.us/500", method: "GET" }
+      });
+      alert("GET 500 captured! (Server error)");
+    }
+  };
+
+  const triggerGet401 = async () => {
+    try {
+      const res = await fetch("https://httpstat.us/401", {
+        headers: { Accept: "application/json" }
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Unauthorized (${res.status}): ${body}`);
+      }
+    } catch (err) {
+      captureError(err, {
+        tags: ["api", "get", "auth"],
+        context: { endpoint: "https://httpstat.us/401", method: "GET", reason: "missing/invalid token" }
+      });
+      alert("GET 401 captured! (Unauthorized)");
+    }
+  };
+
+  const triggerGetTimeout = async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    try {
+      // Delays 5s but we abort after 2s -> AbortError
+      const res = await fetch("https://httpstat.us/200?sleep=5000", {
+        signal: controller.signal
+      });
+      await res.text();
+    } catch (err) {
+      captureError(err, {
+        tags: ["api", "get", "timeout"],
+        context: { endpoint: "https://httpstat.us/200?sleep=5000", timeoutMs: 2000 }
+      });
+      alert("GET timeout captured! (Request aborted after 2s)");
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  const triggerBadJson = async () => {
+    try {
+      // Returns HTML, not JSON -> res.json() throws a SyntaxError
+      const res = await fetch("https://example.com/");
+      const data = await res.json();
+      console.log(data);
+    } catch (err) {
+      captureError(err, {
+        tags: ["api", "get", "parse-error"],
+        context: { endpoint: "https://example.com/", expected: "application/json" }
+      });
+      alert("Bad JSON parse captured! (Response was not valid JSON)");
+    }
+  };
+
+  // ---- Failed POST scenarios ----
+
+  const triggerPost400 = async () => {
+    try {
+      const res = await fetch("https://httpstat.us/400", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email: "not-an-email" }) // pretend invalid payload
+      });
+      const body = await res.text();
+      if (!res.ok) {
+        throw new Error(`POST rejected (${res.status}): ${body}`);
+      }
+    } catch (err) {
+      captureError(err, {
+        tags: ["api", "post", "validation"],
+        context: { endpoint: "https://httpstat.us/400", method: "POST", payload: { email: "not-an-email" } }
+      });
+      alert("POST 400 captured! (Validation failed)");
+    }
+  };
+
+  const triggerPost403 = async () => {
+    try {
+      const res = await fetch("https://httpstat.us/403", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ action: "delete-account", userId: 42 })
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Forbidden (${res.status}): ${body}`);
+      }
+    } catch (err) {
+      captureError(err, {
+        tags: ["api", "post", "forbidden"],
+        context: { endpoint: "https://httpstat.us/403", method: "POST", reason: "insufficient permissions" }
+      });
+      alert("POST 403 captured! (Forbidden)");
+    }
+  };
+
+  const triggerPostNetworkError = async () => {
+    try {
+      // Unresolvable host -> fetch rejects with a TypeError (network failure)
+      await fetch("https://non-existent-api.invalid/v1/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: "ORD-1001", total: 49.99 })
+      });
+    } catch (err) {
+      captureError(err, {
+        tags: ["api", "post", "network"],
+        context: { endpoint: "https://non-existent-api.invalid/v1/orders", method: "POST" }
+      });
+      alert("POST network error captured! (Host unreachable)");
+    }
+  };
+
+  const triggerPost500 = async () => {
+    try {
+      const res = await fetch("https://httpstat.us/503", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ report: "monthly", format: "pdf" })
+      });
+      const body = await res.text();
+      if (!res.ok) {
+        throw new Error(`Service unavailable (${res.status}): ${body}`);
+      }
+    } catch (err) {
+      captureError(err, {
+        tags: ["api", "post", "503"],
+        context: { endpoint: "https://httpstat.us/503", method: "POST", retryable: true }
+      });
+      alert("POST 503 captured! (Service unavailable)");
+    }
+  };
+
   const triggerTypeError = () => {
     const obj = null;
     console.log(obj.property); // Throws TypeError
@@ -167,6 +336,23 @@ function Home() {
         <button onClick={triggerSuccessfulPost} style={buttonStyle("#059669")}>Successful POST API</button>
         <button onClick={triggerTypeError} style={buttonStyle("#f43f5e")}>Type Error (Null prop)</button>
         <button onClick={triggerPromiseRejection} style={buttonStyle("#6366f1")}>Unhandled Promise Rejection</button>
+      </div>
+
+      <h3 style={{ color: '#ec4899', margin: '30px 0 10px 0' }}>Failed GET APIs (with response)</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <button onClick={triggerGet404} style={buttonStyle("#dc2626")}>GET 404 — Not Found</button>
+        <button onClick={triggerGet500} style={buttonStyle("#b91c1c")}>GET 500 — Server Error</button>
+        <button onClick={triggerGet401} style={buttonStyle("#ea580c")}>GET 401 — Unauthorized</button>
+        <button onClick={triggerGetTimeout} style={buttonStyle("#7c3aed")}>GET Timeout (Abort)</button>
+        <button onClick={triggerBadJson} style={{ ...buttonStyle("#9333ea"), gridColumn: 'span 2' }}>GET — Malformed JSON Response</button>
+      </div>
+
+      <h3 style={{ color: '#ec4899', margin: '30px 0 10px 0' }}>Failed POST APIs (different scenarios)</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <button onClick={triggerPost400} style={buttonStyle("#e11d48")}>POST 400 — Validation Error</button>
+        <button onClick={triggerPost403} style={buttonStyle("#be123c")}>POST 403 — Forbidden</button>
+        <button onClick={triggerPost500} style={buttonStyle("#a21caf")}>POST 503 — Service Unavailable</button>
+        <button onClick={triggerPostNetworkError} style={buttonStyle("#0f766e")}>POST — Network Failure</button>
       </div>
     </div>
   );

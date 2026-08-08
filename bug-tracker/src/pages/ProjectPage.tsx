@@ -7,6 +7,7 @@ import { AIInsightCard } from '../components/AIInsightCard';
 import { useAuthStore } from '../store/auth';
 import type { Error as ErrorType, Project } from '../types';
 import toast from 'react-hot-toast';
+import { parseServerDate } from '../utils/time';
 import { ProjectTeamModal } from '../components/ProjectTeamModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -39,7 +40,7 @@ const getEventTypeMeta = (eventType: string | undefined): {
 const formatDate = (dateString: string | undefined) => {
   if (!dateString) return 'N/A';
   try {
-    const date = new Date(dateString);
+    const date = parseServerDate(dateString);
     if (isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric',

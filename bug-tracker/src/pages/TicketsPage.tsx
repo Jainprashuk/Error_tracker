@@ -4,6 +4,7 @@ import { Sidebar } from '../components/Sidebar';
 import { Card, Skeleton, Badge } from '../components/ui';
 import { ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { parseServerDate } from '../utils/time';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -96,7 +97,7 @@ export const TicketsPage: React.FC = () => {
                         <td className="px-6 py-4 text-slate-300 text-sm">{ticket.projectName || '-'}</td>
                         <td className="px-6 py-4 text-slate-400 text-xs">{ticket.event_type || '-'}</td>
                         <td className="px-6 py-4 text-slate-500 text-xs font-mono truncate max-w-xs">{ticket.fingerprint}</td>
-                        <td className="px-6 py-4 text-slate-400 text-xs">{ticket.last_seen ? new Date(ticket.last_seen).toLocaleString() : '-'}</td>
+                        <td className="px-6 py-4 text-slate-400 text-xs">{ticket.last_seen ? parseServerDate(ticket.last_seen).toLocaleString() : '-'}</td>
                         <td className="px-6 py-4">
                           {ticket.ticket_url ? (
                             <a

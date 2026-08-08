@@ -14,7 +14,7 @@ import { ResponsiveContainer } from 'recharts';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import toast from 'react-hot-toast';
 import { encrypt } from '../utils/crypto';
-import { formatRelativeDate } from '../utils/time';
+import { formatRelativeDate, parseServerDate } from '../utils/time';
 import { AIInsightCard } from '../components/AIInsightCard';
 import { useCountUp } from '../hooks/useCountUp';
 
@@ -351,7 +351,7 @@ export const DashboardPage: React.FC = () => {
 
         // Flatten and sort by date
         const flatLogs = allLogs.flat().sort((a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          parseServerDate(b.createdAt).getTime() - parseServerDate(a.createdAt).getTime()
         ).slice(0, 10); // Show only latest 10
 
         setAlertLogs(flatLogs);
@@ -556,7 +556,7 @@ export const DashboardPage: React.FC = () => {
                                   </span>
                                   <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
                                     <Clock size={11} />
-                                    {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {parseServerDate(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 </div>
                               </div>
