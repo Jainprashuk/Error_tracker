@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "bug-tracker-sdk": "file:../sdk",
+    "bug-tracker-sdk": "^1.0.24",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.14.0"

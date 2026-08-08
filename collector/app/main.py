@@ -74,7 +74,7 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(SecurityGuard)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=".*",  # allow all origins (regex works with credentials; literal "*" does not)
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
